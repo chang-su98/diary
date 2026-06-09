@@ -35,7 +35,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-7">
       <input
         type="text"
         autoComplete="username"
@@ -43,7 +43,7 @@ export function LoginForm() {
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         required
-        className="w-full rounded-full bg-surface px-5 py-3.5 shadow-sm outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-full border-b border-line bg-transparent px-1 py-3 tracking-wide outline-none transition-colors placeholder:text-text-muted focus:border-primary"
       />
       <input
         type="password"
@@ -52,15 +52,15 @@ export function LoginForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
-        className="w-full rounded-full bg-surface px-5 py-3.5 shadow-sm outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-full border-b border-line bg-transparent px-1 py-3 tracking-wide outline-none transition-colors placeholder:text-text-muted focus:border-primary"
       />
-      {error && <p className="px-2 text-sm text-error">{error}</p>}
+      {error && <p className="text-sm text-error">{error}</p>}
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 w-full rounded-lg bg-primary py-3.5 font-semibold text-white transition-colors active:bg-primary-strong disabled:opacity-60"
+        className="mt-3 w-full bg-primary py-4 text-sm tracking-[0.25em] text-white transition-colors hover:bg-primary-strong disabled:opacity-50"
       >
-        {loading ? "로그인 중…" : "로그인"}
+        {loading ? "LOGIN…" : "LOGIN"}
       </button>
     </form>
   );

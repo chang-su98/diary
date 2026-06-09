@@ -85,21 +85,22 @@
 }
 
 :root {
-  --background: #f2f2f2;
-  --foreground: #0f0f0f;
+  --background: #ffffff;
+  --foreground: #1e1e1e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* 퍼플 팔레트 (Figma Mobile Templates 색상 스타일 채택) */
-  --color-bg: #f2f2f2;
+  /* 모노크롬 팔레트 (tscent-tea.com 미감 — 흰 배경 + 차콜) */
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-primary: #9b40bf;
-  --color-primary-strong: #7c3399;
-  --color-text: #0f0f0f;
-  --color-text-muted: #6f6f6f;
-  --color-error: #e52b67;
+  --color-line: #e5e5e5;
+  --color-primary: #1e1e1e;
+  --color-primary-strong: #000000;
+  --color-text: #1e1e1e;
+  --color-text-muted: #9a9a9a;
+  --color-error: #b3261e;
   --font-sans:
     "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Segoe UI", "Malgun Gothic", system-ui, sans-serif;

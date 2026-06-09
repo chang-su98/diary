@@ -7,11 +7,13 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-full flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center text-3xl font-bold">기록</h1>
-        <p className="mb-10 text-center text-text-muted">
-          로그인하고 함께 기록해요
+    <main className="flex min-h-full flex-col items-center justify-center px-8 py-16">
+      <div className="w-full max-w-xs">
+        <h1 className="mb-3 pl-[0.45em] text-center text-3xl font-light tracking-[0.45em]">
+          기록
+        </h1>
+        <p className="mb-16 pl-[0.2em] text-center text-xs tracking-[0.2em] text-text-muted">
+          함께 기록하다
         </p>
         <LoginForm />
       </div>
