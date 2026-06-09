@@ -1,1 +1,95 @@
 @AGENTS.md
+
+# CLAUDE.md
+
+이 파일은 Claude Code가 이 저장소에서 작업할 때 참고하는 가이드다.
+
+## Commands
+
+- `pnpm dev` — 개발 서버 (http://localhost:3000)
+- `pnpm build` — 프로덕션 빌드 (Turbopack)
+- `pnpm lint` — ESLint (flat config, eslint v9)
+- `pnpm exec tsc --noEmit` — 타입 체크
+- `pnpm exec prisma generate` — Prisma 클라이언트 재생성 (스키마 변경 후)
+- `pnpm exec prisma migrate dev --name <name>` — 마이그레이션 생성·적용
+- `pnpm exec prisma studio` — 데이터 GUI 확인
+
+### MariaDB (Docker 미사용 — Windows 네이티브)
+
+- MariaDB 12.3 을 **Windows 서비스**로 실행한다 (서비스명 `MariaDB`, `localhost:3306`).
+- 상태 확인/시작 (관리자 PowerShell): `Get-Service MariaDB` / `Start-Service MariaDB`
+- 로컬 DB·사용자: DB `diary`, user `diary`/`diary` (연결 문자열은 `.env`의 `DATABASE_URL`).
+
+## Architecture
+
+- **Framework**: Next.js 16.2, App Router (`src/app/`), React 19, Turbopack
+- **Styling**: Tailwind CSS v4 (`@tailwindcss/postcss`); 테마 토큰은 `src/app/globals.css`의 `@theme inline`
+- **Path alias**: `@/*` → `./src/*`
+- **Database**: MariaDB 12.3 (네이티브) + Prisma 7
+  - 런타임 연결: `@prisma/adapter-mariadb` 어댑터 (`src/lib/prisma.ts`)
+  - 마이그레이션 연결: `prisma.config.ts`의 `datasource.url`
+  - Prisma 7 신규 `prisma-client` generator → 생성물은 `src/generated/prisma` (import는 `@/generated/prisma/client`)
+- **State**: Zustand (클라이언트 UI) + TanStack Query (서버 데이터, `src/app/_components/query-provider.tsx`)
+- **Validation**: Zod 스키마는 `src/lib/schemas/`에 정의 (도입 예정)
+- **PWA**: `src/app/manifest.ts` + `public/sw.js`(미니 서비스워커, 프로덕션에서만 등록) + `public/icon.svg`
+
+> React Compiler: 요청 스택에 포함되나 **아직 미적용**. 활성화 시 `babel-plugin-react-compiler` 설치 + `next.config.ts` 설정 필요.
+
+## Key Conventions
+
+- ESLint flat config (`eslint.config.mjs`) — `next/core-web-vitals` + `next/typescript`. `src/generated/**`는 린트 제외.
+- Tailwind v4 CSS 기반 설정(`tailwind.config.js` 없음); 다크모드는 `prefers-color-scheme`
+- TypeScript strict 모드, `any` 타입 사용 금지
+- 커밋 전 `pnpm lint` 실행
+- pnpm은 `node-linker=hoisted`(`.npmrc`) — Windows 백신 EPERM 회피용. clone 후 `pnpm install` → `pnpm exec prisma generate` 순으로 복원.
+- 영역별 세부 규칙: `.claude/rules/`(api, prisma, react-components, state, styling) — glob 자동 첨부
+- 프론트 패턴: `docs/ref/frontend-guide.md`
+
+## Git Commit Message
+
+### 형식
+
+```
+<type>: <subject>
+
+<body (선택)>
+```
+
+### Type
+
+| Type | 용도 |
+|------|------|
+| `feat` | 새로운 기능 추가 |
+| `fix` | 버그 수정 |
+| `refactor` | 기능 변경 없는 코드 구조 개선 |
+| `style` | 코드 포맷팅 등 (동작 변경 없음) |
+| `docs` | 문서 변경 |
+| `chore` | 빌드, 설정, 의존성 등 기타 변경 |
+| `test` | 테스트 추가/수정 |
+
+### 규칙
+
+- 접두사(type)는 **영어**, subject·body는 **한국어**로 작성
+- subject는 50자 이내, 동사 원형으로 시작
+- body는 선택, "무엇을 왜" 변경했는지 간결히 서술 (subject와 빈 줄로 구분)
+
+### 예시
+
+```
+feat: 일기 작성 API 추가
+
+일기 CRUD 중 생성 라우트 핸들러를 구현하고 Zod로 요청을 검증한다.
+```
+
+```
+fix: 개발 모드의 Prisma 클라이언트 싱글톤 누수 해결
+```
+
+## Memo
+
+- 코드 작성 시 기본적으로 @docs/coding-conventions.md 를 반드시 참조한다.
+- 모든 답변과 추론 과정은 **한국어**로 작성한다.
+- task가 끝나면 **린트체크 · 타입체크 · 빌드체크**를 수행한다.
+- 린트 오류는 반드시 해결하고 넘어가며, 경고도 가능한 한 해결한다.
+- 커밋 시 접두사는 영어, 나머지 타이틀·내용은 한국어로 작성한다.
+- task 완료 시 CLAUDE.md · README.md 업데이트가 필요하면 진행한다.
