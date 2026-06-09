@@ -1,38 +1,24 @@
 // Diary PWA 미니 서비스워커 (온라인 전제)
-// - 설치 가능(installability) 요건인 fetch 핸들러 충족
-// - 네트워크 우선 + 네비게이션 오프라인 폴백만 최소 제공
-const CACHE = "diary-shell-v1";
+// - 설치 가능(installability) 요건인 fetch 핸들러만 유지
+// - 인증된 페이지(예: 보호된 홈)를 캐시하지 않는다 → 캐시를 통한 정보 노출 방지
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.add("/")));
 });
 
 self.addEventListener("activate", (event) => {
+  // 과거 버전이 캐시해 둔 항목(인증 페이지 포함)을 모두 제거
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-      )
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (request.method !== "GET") return;
-
-  // 페이지 이동만 네트워크 우선, 실패 시 캐시된 셸로 폴백
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("/", copy));
-          return response;
-        })
-        .catch(() => caches.match("/"))
-    );
+  // 네비게이션은 네트워크 전용(캐시 사용 안 함). 온라인 전제라 오프라인 폴백 미제공.
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request));
   }
 });

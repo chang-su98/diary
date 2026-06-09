@@ -17,6 +17,10 @@ function getSecret(): Uint8Array {
     // 안전 기본값을 두지 않는다 — 미설정 시 명확히 실패.
     throw new Error("JWT_SECRET 환경변수가 설정되지 않았습니다.");
   }
+  // HS256 권장 강도 — 약한 시크릿/플레이스홀더 거부
+  if (s.length < 32) {
+    throw new Error("JWT_SECRET는 32자 이상이어야 합니다.");
+  }
   return new TextEncoder().encode(s);
 }
 

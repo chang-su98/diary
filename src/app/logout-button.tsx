@@ -6,9 +6,17 @@ export function LogoutButton() {
   const router = useRouter();
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
+    try {
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (!res.ok) {
+        alert("로그아웃에 실패했습니다. 다시 시도해 주세요.");
+        return;
+      }
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      alert("네트워크 오류로 로그아웃하지 못했습니다.");
+    }
   }
 
   return (
