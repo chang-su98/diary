@@ -10,9 +10,11 @@ const PROFILE_SELECT = {
   username: true,
   displayName: true,
   birthday: true,
-  bio: true,
+  email: true,
   avatar: true,
 } as const;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function GET() {
   const session = await getSession();
@@ -49,7 +51,7 @@ export async function PATCH(req: NextRequest) {
   const data: {
     displayName?: string | null;
     birthday?: Date | null;
-    bio?: string | null;
+    email?: string | null;
     avatar?: string | null;
   } = {};
 
@@ -58,10 +60,15 @@ export async function PATCH(req: NextRequest) {
     if (v !== null && (typeof v !== "string" || v.length > 50)) return bad();
     data.displayName = v ? v : null;
   }
-  if ("bio" in body) {
-    const v = body.bio;
-    if (v !== null && (typeof v !== "string" || v.length > 200)) return bad();
-    data.bio = v ? v : null;
+  if ("email" in body) {
+    const v = body.email;
+    if (v === null || v === "") {
+      data.email = null;
+    } else if (typeof v === "string" && v.length <= 255 && EMAIL_RE.test(v)) {
+      data.email = v;
+    } else {
+      return bad();
+    }
   }
   if ("birthday" in body) {
     const v = body.birthday;

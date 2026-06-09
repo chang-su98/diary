@@ -13,7 +13,7 @@ export default async function ProfilePage() {
       username: true,
       displayName: true,
       birthday: true,
-      bio: true,
+      email: true,
       avatar: true,
     },
   });
@@ -25,7 +25,7 @@ export default async function ProfilePage() {
         username: user.username,
         displayName: user.displayName,
         birthday: user.birthday ? user.birthday.toISOString() : null,
-        bio: user.bio,
+        email: user.email,
         avatar: user.avatar,
       }}
     />

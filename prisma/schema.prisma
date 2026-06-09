@@ -19,7 +19,7 @@ model User {
   passwordHash String    @db.VarChar(255)
   displayName  String?   @db.VarChar(50) // 이름
   birthday     DateTime? // 생일
-  bio          String?   @db.VarChar(200) // 한줄 소개
+  email        String?   @db.VarChar(255) // 이메일
   avatar       String?   @db.MediumText // 프로필 사진 (data URL)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt

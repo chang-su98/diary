@@ -9,7 +9,7 @@ type Initial = {
   username: string;
   displayName: string | null;
   birthday: string | null; // ISO 문자열
-  bio: string | null;
+  email: string | null;
   avatar: string | null;
 };
 
@@ -20,7 +20,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
   const [birthday, setBirthday] = useState(
     initial.birthday ? initial.birthday.slice(0, 10) : ""
   );
-  const [bio, setBio] = useState(initial.bio ?? "");
+  const [email, setEmail] = useState(initial.email ?? "");
   const [avatar, setAvatar] = useState<string | null>(initial.avatar);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         body: JSON.stringify({
           displayName: name,
           birthday: birthday || null,
-          bio,
+          email,
           avatar,
         }),
       });
@@ -122,14 +122,14 @@ export function ProfileForm({ initial }: { initial: Initial }) {
             className="w-full border-b border-line bg-transparent py-2 outline-none transition-colors focus:border-primary"
           />
         </Field>
-        <Field label="한줄 소개">
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={200}
-            rows={2}
-            placeholder="한줄 소개"
-            className="w-full resize-none border-b border-line bg-transparent py-2 outline-none transition-colors focus:border-primary placeholder:text-text-muted"
+        <Field label="이메일">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={255}
+            placeholder="이메일을 입력하세요"
+            className="w-full border-b border-line bg-transparent py-2 outline-none transition-colors focus:border-primary placeholder:text-text-muted"
           />
         </Field>
 
