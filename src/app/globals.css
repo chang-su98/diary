@@ -85,24 +85,24 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f0f4f3;
+  --foreground: #1a1a1a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* 틸 팔레트 (Figma 참고 색감) */
+  --color-bg: #f0f4f3;
+  --color-surface: #ffffff;
+  --color-primary: #50c2c9;
+  --color-primary-strong: #3aa9b0;
+  --color-text: #1a1a1a;
+  --color-text-muted: rgba(0, 0, 0, 0.6);
   --font-sans:
     "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

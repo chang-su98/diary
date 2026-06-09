@@ -4,13 +4,13 @@ import { PWARegister } from "./_components/pwa-register";
 import { QueryProvider } from "./_components/query-provider";
 
 export const metadata: Metadata = {
-  title: "Diary",
-  description: "온라인 일기 앱",
-  applicationName: "Diary",
+  title: "기록",
+  description: "함께 쓰는 기록 앱",
+  applicationName: "기록",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Diary",
+    statusBarStyle: "default",
+    title: "기록",
   },
   icons: {
     icon: "/icon.svg",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#50c2c9",
 };
 
 export default function RootLayout({

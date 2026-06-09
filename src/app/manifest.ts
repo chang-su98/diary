@@ -2,15 +2,15 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Diary",
-    short_name: "Diary",
-    description: "온라인 일기 앱",
+    name: "기록",
+    short_name: "기록",
+    description: "함께 쓰는 기록 앱",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0a0a0a",
-    theme_color: "#0a0a0a",
+    background_color: "#f0f4f3",
+    theme_color: "#50c2c9",
     lang: "ko",
     icons: [
       {
