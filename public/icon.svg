@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Diary">
+  <!-- full-bleed background covers maskable safe zone -->
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <!-- notebook glyph centered within ~60% safe zone -->
+  <g transform="translate(146 120)">
+    <rect x="0" y="0" width="200" height="272" rx="20" fill="#fafafa"/>
+    <!-- spine -->
+    <rect x="0" y="0" width="34" height="272" rx="10" fill="#6366f1"/>
+    <!-- ruled lines -->
+    <g stroke="#d4d4d8" stroke-width="10" stroke-linecap="round">
+      <line x1="64" y1="74" x2="168" y2="74"/>
+      <line x1="64" y1="120" x2="168" y2="120"/>
+      <line x1="64" y1="166" x2="168" y2="166"/>
+      <line x1="64" y1="212" x2="136" y2="212"/>
+    </g>
+    <!-- bookmark -->
+    <path d="M150 0 h28 v64 l-14 -14 -14 14 z" fill="#6366f1"/>
+  </g>
+</svg>

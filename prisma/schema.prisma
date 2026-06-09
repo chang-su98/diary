@@ -1,0 +1,25 @@
+// Prisma 7 — 새 prisma-client generator + driver adapter(MariaDB)
+// 문서: output 경로 필수, import는 ".../generated/prisma/client"
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // MariaDB는 mysql 커넥터를 사용한다 (@prisma/adapter-mariadb로 연결)
+  // Prisma 7: 연결 URL은 스키마가 아닌 prisma.config.ts 에서 관리
+  provider = "mysql"
+}
+
+// 샘플 모델 — 일기. 실제 요구사항에 맞게 자유롭게 수정하세요.
+model Diary {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(200)
+  content   String   @db.Text
+  mood      String?  @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diaries")
+}
