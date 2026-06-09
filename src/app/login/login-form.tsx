@@ -54,7 +54,7 @@ export function LoginForm() {
         required
         className="w-full rounded-full bg-surface px-5 py-3.5 shadow-sm outline-none focus:ring-2 focus:ring-primary/40"
       />
-      {error && <p className="px-2 text-sm text-red-500">{error}</p>}
+      {error && <p className="px-2 text-sm text-error">{error}</p>}
       <button
         type="submit"
         disabled={loading}
