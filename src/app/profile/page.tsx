@@ -1,8 +1,33 @@
-export default function ProfilePage() {
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { ProfileForm } from "./profile-form";
+
+export default async function ProfilePage() {
+  const session = await getSession();
+  if (!session) redirect("/login"); // proxy로도 보호되지만 방어적
+
+  const user = await prisma.user.findUnique({
+    where: { id: Number(session.sub) },
+    select: {
+      username: true,
+      displayName: true,
+      birthday: true,
+      bio: true,
+      avatar: true,
+    },
+  });
+  if (!user) redirect("/login");
+
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
-      <h1 className="text-2xl font-light tracking-[0.2em]">PROFILE</h1>
-      <p className="text-sm tracking-wide text-text-muted">준비 중</p>
-    </main>
+    <ProfileForm
+      initial={{
+        username: user.username,
+        displayName: user.displayName,
+        birthday: user.birthday ? user.birthday.toISOString() : null,
+        bio: user.bio,
+        avatar: user.avatar,
+      }}
+    />
   );
 }
