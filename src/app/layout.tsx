@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PWARegister } from "./_components/pwa-register";
 import { QueryProvider } from "./_components/query-provider";
+import { BottomNav } from "./_components/bottom-nav";
 
 export const metadata: Metadata = {
   title: "기록",
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <PWARegister />
         <QueryProvider>{children}</QueryProvider>
+        <BottomNav />
       </body>
     </html>
   );
