@@ -22,7 +22,7 @@
 
 ## Architecture
 
-- **Framework**: Next.js 16.2, App Router (`src/app/`), React 19, Turbopack
+- **Framework**: Next.js 16.2, App Router (`src/app/`), React 19, Turbopack, React Compiler 활성화
 - **Styling**: Tailwind CSS v4 (`@tailwindcss/postcss`); 테마 토큰은 `src/app/globals.css`의 `@theme inline`
 - **Path alias**: `@/*` → `./src/*`
 - **Database**: MariaDB 12.3 (네이티브) + Prisma 7
@@ -33,7 +33,7 @@
 - **Validation**: Zod 스키마는 `src/lib/schemas/`에 정의 (도입 예정)
 - **PWA**: `src/app/manifest.ts` + `public/sw.js`(미니 서비스워커, 프로덕션에서만 등록) + `public/icon.svg`
 
-> React Compiler: 요청 스택에 포함되나 **아직 미적용**. 활성화 시 `babel-plugin-react-compiler` 설치 + `next.config.ts` 설정 필요.
+> React Compiler: **활성화됨** (`next.config.ts`의 `reactCompiler: true` + `babel-plugin-react-compiler`). 수동 `useMemo`/`useCallback`은 대부분 불필요 — Rules of React를 지키면 컴파일러가 자동 메모이제이션한다.
 
 ## Key Conventions
 
