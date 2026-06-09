@@ -81,7 +81,29 @@ model User {
 
 추가 의존성: `bcryptjs`(+`@types/bcryptjs`), `jose`.
 
-## 7. 완료 기준 (Acceptance)
+## 7. 디자인 시스템 (색감/스타일)
+
+참고 Figma(Mobile app design | Todo app, Community)의 **틸(teal) 색감**을 채택한다.
+화면을 1:1로 복제하는 게 아니라 **팔레트와 컴포넌트 스타일**만 가져온다.
+
+| 토큰 | 값 | 용도 |
+|------|-----|------|
+| `--color-bg` | `#f0f4f3` | 페이지 배경(민트) |
+| `--color-surface` | `#ffffff` | 카드·입력 필드 |
+| `--color-primary` | `#50c2c9` | 버튼·링크·강조 |
+| `--color-primary-strong` | `#3aa9b0` | hover·헤더(파생) |
+| `--color-text` | `#1a1a1a` | 제목·본문 |
+| `--color-text-muted` | `rgba(0,0,0,0.6)` | 보조 텍스트 |
+
+- **버튼**: 틸 배경, 흰 텍스트, radius 8px, 가로 꽉 채움.
+- **입력**: 흰색 배경, 큰 radius(pill), 옅은 그림자.
+- **폰트**: Pretendard 유지(참고 디자인의 Poppins는 한글 미지원이므로 채택 안 함).
+- Tailwind v4 `@theme`에 위 토큰을 등록하고 `globals.css`에서 사용.
+
+### M0 로그인 화면 적용
+민트 배경 + 가운데 정렬 카드(또는 단순 폼) + 흰색 라운드 입력(아이디/비번) + 틸 로그인 버튼.
+
+## 8. 완료 기준 (Acceptance)
 
 - [ ] `User` 모델 마이그레이션 적용, `Diary` 모델 제거.
 - [ ] 시드 실행 시 `kcs___chang` 계정이 해시 비번으로 생성됨(멱등).
