@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* 자동 소스 감지를 src/ 로 한정 — .claude, docs 등 비소스 폴더 스캔 방지 */
+@import "tailwindcss" source("../");
 
 :root {
   --background: #ffffff;
