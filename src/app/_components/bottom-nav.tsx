@@ -21,7 +21,7 @@ export function BottomNav() {
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface">
+    <nav className="fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-line bg-surface shadow-[0_-2px_16px_rgba(0,0,0,0.05)]">
       <ul className="mx-auto flex max-w-md items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
         {ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
