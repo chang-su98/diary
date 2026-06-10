@@ -28,3 +28,31 @@ export async function fileToResizedDataURL(
     bitmap.close();
   }
 }
+
+// 비율을 유지한 채 긴 변을 maxEdge 이하로 축소해 data URL로 변환 (클라이언트 전용).
+// 갤러리 메이슨리용 — 정사각 크롭이 아니라 원본 비율을 보존한다.
+// 표시 비율(레이아웃 시프트 방지)을 위해 결과 width/height도 함께 반환.
+export async function fileToScaledImage(
+  file: File,
+  maxEdge = 1280,
+  quality = 0.8
+): Promise<{ dataUrl: string; width: number; height: number }> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas 2d context를 사용할 수 없습니다.");
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const outType = OUTPUT_TYPES.includes(file.type) ? file.type : "image/jpeg";
+    return { dataUrl: canvas.toDataURL(outType, quality), width, height };
+  } finally {
+    bitmap.close();
+  }
+}
