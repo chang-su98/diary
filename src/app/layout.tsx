@@ -4,6 +4,7 @@ import { PWARegister } from "./_components/pwa-register";
 import { QueryProvider } from "./_components/query-provider";
 import { BottomNav } from "./_components/bottom-nav";
 import { PageTransition } from "./_components/page-transition";
+import { PullToRefresh } from "./_components/pull-to-refresh";
 
 export const metadata: Metadata = {
   title: "RECORD",
@@ -37,7 +38,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <PWARegister />
         <QueryProvider>
-          <PageTransition>{children}</PageTransition>
+          <PullToRefresh>
+            <PageTransition>{children}</PageTransition>
+          </PullToRefresh>
         </QueryProvider>
         <BottomNav />
       </body>
