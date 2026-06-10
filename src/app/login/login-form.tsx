@@ -84,7 +84,9 @@ export function LoginForm() {
           <svg
             viewBox="0 0 14 14"
             fill="none"
-            className="pointer-events-none size-3.5 scale-50 text-white opacity-0 transition-all duration-200 peer-checked:scale-100 peer-checked:opacity-100"
+            width="14"
+            height="14"
+            className="pointer-events-none size-3.5 shrink-0 scale-50 text-white opacity-0 transition-all duration-200 peer-checked:scale-100 peer-checked:opacity-100"
           >
             <path
               d="M3 7.5L6 10.5L11 4"
