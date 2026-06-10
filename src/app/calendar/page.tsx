@@ -1,3 +1,4 @@
+import { AnniversarySection } from "./anniversary-section";
 import { BirthdayList } from "./birthday-list";
 import { DayCounter } from "./day-counter";
 import { NextAnniversary } from "./next-anniversary";
@@ -21,28 +22,8 @@ export default function CalendarPage() {
       {/* 회원 생일 목록 */}
       <BirthdayList />
 
-      {/* 우리들의 기념일 — 추가 버튼(동작 연결 예정) */}
-      <button
-        type="button"
-        className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line py-4 text-sm tracking-wide text-text-muted transition-colors hover:border-text hover:text-text active:scale-[0.99]"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-          width={18}
-          height={18}
-          className="size-[18px] shrink-0"
-        >
-          <path
-            d="M12 5V19M5 12H19"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-          />
-        </svg>
-        기념일 추가하기
-      </button>
+      {/* 우리들의 기념일 — 추가/수정/삭제 */}
+      <AnniversarySection />
     </main>
   );
 }

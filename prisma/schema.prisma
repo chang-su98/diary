@@ -26,3 +26,15 @@ model User {
 
   @@map("users")
 }
+
+// 우리들의 기념일 — 사용자가 추가/수정/삭제하는 공유 기념일
+model Anniversary {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(100) // 기념일 제목
+  date      DateTime // 기념일 날짜 (UTC 자정 저장)
+  yearly    Boolean  @default(true) // 매년 반복 여부
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("anniversaries")
+}
