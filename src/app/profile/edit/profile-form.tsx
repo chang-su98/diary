@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fileToResizedDataURL } from "@/lib/image";
-import { LogoutButton } from "../logout-button";
 
 type Initial = {
   username: string;
@@ -55,7 +55,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         setMsg("저장에 실패했습니다.");
         return;
       }
-      setMsg("저장되었습니다.");
+      router.push("/profile");
       router.refresh();
     } catch {
       setMsg("네트워크 오류가 발생했습니다.");
@@ -67,7 +67,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-14">
       <h1 className="mb-10 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
-        PROFILE
+        EDIT
       </h1>
 
       {/* 아바타 */}
@@ -143,8 +143,13 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         {msg && <p className="text-center text-sm text-text-muted">{msg}</p>}
       </form>
 
-      <div className="mt-12 flex justify-center">
-        <LogoutButton />
+      <div className="mt-8 flex justify-center">
+        <Link
+          href="/profile"
+          className="text-xs tracking-[0.2em] text-text-muted underline-offset-4 transition-colors hover:text-primary hover:underline"
+        >
+          CANCEL
+        </Link>
       </div>
     </main>
   );
