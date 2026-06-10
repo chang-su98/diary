@@ -1,4 +1,8 @@
-// 파일을 정사각형으로 cover-crop 리사이즈해 data URL(JPEG)로 변환 (클라이언트 전용).
+// canvas가 출력 가능한 래스터 포맷. 그 외(gif·heic 등) 입력은 jpeg로 변환.
+const OUTPUT_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// 파일을 정사각형으로 cover-crop 리사이즈해 data URL로 변환 (클라이언트 전용).
+// png/webp/jpeg 입력은 포맷 보존, 그 외는 jpeg로 변환.
 export async function fileToResizedDataURL(
   file: File,
   size = 256,
@@ -18,7 +22,8 @@ export async function fileToResizedDataURL(
     const h = bitmap.height * scale;
     ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
 
-    return canvas.toDataURL("image/jpeg", quality);
+    const outType = OUTPUT_TYPES.includes(file.type) ? file.type : "image/jpeg";
+    return canvas.toDataURL(outType, quality);
   } finally {
     bitmap.close();
   }
