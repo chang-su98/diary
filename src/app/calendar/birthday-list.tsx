@@ -20,13 +20,13 @@ async function fetchMembers(): Promise<Member[]> {
   return data.members;
 }
 
-// 저장된 생일(UTC 자정)에서 yyyy.mm.dd(요일) 표기
+// 저장된 생일(UTC 자정)에서 yyyy-mm-dd(요일) 표기
 function formatBirthday(iso: string): string {
   const d = new Date(iso);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}.${m}.${day}(${WEEKDAYS[d.getUTCDay()]})`;
+  return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
 }
 
 // 다음 생일까지 남은 일수(오늘 0시 기준). 오늘이 생일이면 0.

@@ -26,9 +26,7 @@ export default async function ProfilePage() {
     {
       label: "생일",
       // 저장 시 입력값(YYYY-MM-DD)을 UTC 자정으로 보관 → UTC 기준으로 되돌려 표시
-      value: user.birthday
-        ? user.birthday.toISOString().slice(0, 10).replace(/-/g, ".")
-        : null,
+      value: user.birthday ? user.birthday.toISOString().slice(0, 10) : null,
     },
     { label: "이메일", value: user.email },
   ];
