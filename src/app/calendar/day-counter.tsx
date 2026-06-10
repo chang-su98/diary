@@ -20,12 +20,16 @@ export function DayCounter({ className }: { className?: string }) {
 
   useEffect(() => {
     const target = computeDayCount();
-    const duration = 1200; // ms
+    // 모션 저감 설정 사용자는 duration 0 → 첫 프레임에 최종값으로 점프(애니메이션 없음)
+    const reduced =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const duration = reduced ? 0 : 1200; // ms
     let startTime: number | null = null;
 
     const tick = (now: number) => {
       if (startTime === null) startTime = now;
-      const progress = Math.min((now - startTime) / duration, 1);
+      const progress =
+        duration === 0 ? 1 : Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
       setCount(Math.max(1, Math.round(eased * target)));
       if (progress < 1) rafRef.current = requestAnimationFrame(tick);

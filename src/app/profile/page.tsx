@@ -66,7 +66,11 @@ export default async function ProfilePage() {
         <div className="size-24 overflow-hidden rounded-full border border-line bg-bg">
           {user.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element -- data URL 이미지
-            <img src={user.avatar} alt="" className="size-full object-cover" />
+            <img
+              src={user.avatar}
+              alt="프로필 사진"
+              className="size-full object-cover"
+            />
           ) : (
             <span className="flex size-full items-center justify-center text-2xl font-light text-text-muted">
               {(user.displayName || user.username).charAt(0).toUpperCase()}

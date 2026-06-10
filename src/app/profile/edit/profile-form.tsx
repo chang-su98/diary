@@ -65,14 +65,23 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName: name,
+          displayName: name || null,
           birthday: birthday || null,
-          email,
+          email: email || null,
           avatar,
         }),
       });
       if (!res.ok) {
-        setMsg("저장에 실패했습니다.");
+        // 서버가 준 검증 메시지(400 등)를 우선 노출, 없으면 일반 메시지
+        const body: unknown = await res.json().catch(() => null);
+        const serverMsg =
+          body !== null &&
+          typeof body === "object" &&
+          "error" in body &&
+          typeof body.error === "string"
+            ? body.error
+            : "저장에 실패했습니다.";
+        setMsg(serverMsg);
         return;
       }
       router.push("/profile");
@@ -110,11 +119,12 @@ export function ProfileForm({ initial }: { initial: Initial }) {
             )}
           </button>
 
-          {/* 사진 메뉴 열기 — 회색 원 + 흰 플러스(인라인 SVG, Safari 안전) */}
+          {/* 사진 변경 배지 — 아바타 버튼과 동일 동작이라 장식 처리(중복 a11y 제거) */}
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            aria-label="프로필 사진 메뉴 열기"
+            aria-hidden
+            tabIndex={-1}
             className="absolute bottom-0 right-0 flex size-7 items-center justify-center rounded-full bg-text-muted text-white ring-2 ring-bg shadow-sm transition-colors hover:bg-text"
           >
             <svg
@@ -169,7 +179,14 @@ export function ProfileForm({ initial }: { initial: Initial }) {
               type="date"
               value={birthday}
               onChange={(e) => setBirthday(e.target.value)}
-              onClick={(e) => e.currentTarget.showPicker?.()}
+              onClick={(e) => {
+                // showPicker 미지원/제스처 예외 시 네이티브 기본 동작에 위임
+                try {
+                  e.currentTarget.showPicker?.();
+                } catch (err) {
+                  console.debug("[birthday] showPicker 예외:", err);
+                }
+              }}
               className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
                 birthday ? "" : "text-transparent"
               }`}
@@ -210,7 +227,11 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         >
           {saving ? "저장 중…" : "SAVE"}
         </button>
-        {msg && <p className="text-center text-sm text-text-muted">{msg}</p>}
+        {msg && (
+          <p className="text-center text-sm text-error" role="alert">
+            {msg}
+          </p>
+        )}
       </form>
 
       <div className="mt-8 flex justify-center">

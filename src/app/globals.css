@@ -124,3 +124,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* 모션 저감 설정 사용자: 전역 애니메이션/전환 최소화 (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
