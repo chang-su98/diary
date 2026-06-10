@@ -94,7 +94,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-[calc(2rem+env(safe-area-inset-top))]">
       <h1 className="mb-10 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
         EDIT
       </h1>
