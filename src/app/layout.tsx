@@ -6,13 +6,13 @@ import { BottomNav } from "./_components/bottom-nav";
 import { PageTransition } from "./_components/page-transition";
 
 export const metadata: Metadata = {
-  title: "기록",
+  title: "RECORD",
   description: "함께 쓰는 기록 앱",
-  applicationName: "기록",
+  applicationName: "RECORD",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "기록",
+    title: "RECORD",
   },
   icons: {
     icon: "/icon.svg",

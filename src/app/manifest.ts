@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "기록",
-    short_name: "기록",
+    name: "RECORD",
+    short_name: "RECORD",
     description: "함께 쓰는 기록 앱",
     start_url: "/",
     scope: "/",
