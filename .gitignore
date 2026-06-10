@@ -43,6 +43,12 @@ yarn-error.log*
 # Claude Code 로컬 개인 설정
 /.claude/settings.local.json
 
+# Claude 에이전트 내부 메모리 (커밋 대상 아님)
+/.claude/agent-memory/
+
+# 디버깅용 스크린샷 등 임시 자료
+/docs/bug/
+
 # vercel
 .vercel
 
