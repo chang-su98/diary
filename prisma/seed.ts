@@ -6,7 +6,11 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 // 시드: 폐쇄형 2인 앱의 계정을 생성한다(공개 가입 없음).
 // 멱등 — 이미 있으면 비밀번호를 재해시하지 않고 그대로 둔다.
 // 비밀번호는 코드/히스토리에 평문으로 남기지 않고 .env(gitignore)에서 읽는다.
-const adapter = new PrismaMariaDb(process.env.DATABASE_URL as string);
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL 환경변수가 설정되지 않았습니다 (.env 확인).");
+}
+const adapter = new PrismaMariaDb(databaseUrl);
 const prisma = new PrismaClient({ adapter });
 
 const accounts = [

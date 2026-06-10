@@ -29,7 +29,9 @@ model User {
   @@map("users")
 }
 
-// 우리들의 일정 — 사용자가 추가/수정/삭제하는 공유 일정
+// 우리들의 일정 — 폐쇄형 2인 공유 일정.
+// 인가 모델: 공유 — 로그인한 두 사용자 모두 누구의 일정이든 수정/삭제 가능(의도).
+// authorId는 "누가 만들었는지" 표시용일 뿐 수정/삭제 권한을 제한하지 않는다.
 model Anniversary {
   id        Int      @id @default(autoincrement())
   title     String   @db.VarChar(100) // 일정 제목

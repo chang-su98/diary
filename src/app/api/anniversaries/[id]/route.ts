@@ -52,6 +52,13 @@ export async function PATCH(
     if (p.date !== undefined) data.date = new Date(`${p.date}T00:00:00Z`);
     if (p.yearly !== undefined) data.yearly = p.yearly;
 
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json(
+        { error: "수정할 항목이 없습니다." },
+        { status: 400 }
+      );
+    }
+
     await prisma.anniversary.update({ where: { id }, data, select: { id: true } });
     return NextResponse.json({ ok: true });
   } catch (error) {

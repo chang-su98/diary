@@ -11,7 +11,8 @@ export async function GET() {
     }
 
     const members = await prisma.user.findMany({
-      select: { id: true, username: true, displayName: true, birthday: true },
+      // 로그인 ID(username)는 노출하지 않는다 — 화면엔 displayName만 필요
+      select: { id: true, displayName: true, birthday: true },
       orderBy: { id: "asc" },
     });
 

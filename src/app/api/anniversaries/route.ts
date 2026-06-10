@@ -50,14 +50,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const authorId = Number(session.sub);
+    if (!Number.isInteger(authorId)) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
     const { title, date, yearly } = parsed.data;
     const anniversary = await prisma.anniversary.create({
       data: {
         title,
         date: new Date(`${date}T00:00:00Z`),
         yearly,
-        authorId: Number(session.sub), // 로그인 사용자를 작성자로 기록
+        authorId, // 로그인 사용자를 작성자로 기록
       },
+      include: { author: { select: { displayName: true, username: true } } },
     });
     return NextResponse.json({ anniversary }, { status: 201 });
   } catch (error) {
