@@ -3,6 +3,7 @@ import "./globals.css";
 import { PWARegister } from "./_components/pwa-register";
 import { QueryProvider } from "./_components/query-provider";
 import { BottomNav } from "./_components/bottom-nav";
+import { PageTransition } from "./_components/page-transition";
 
 export const metadata: Metadata = {
   title: "기록",
@@ -32,7 +33,9 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <PWARegister />
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <PageTransition>{children}</PageTransition>
+        </QueryProvider>
         <BottomNav />
       </body>
     </html>
