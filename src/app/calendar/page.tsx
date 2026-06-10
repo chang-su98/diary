@@ -1,3 +1,4 @@
+import { BirthdayList } from "./birthday-list";
 import { DayCounter } from "./day-counter";
 
 export default function CalendarPage() {
@@ -15,11 +16,8 @@ export default function CalendarPage() {
         </div>
       </section>
 
-      {/* 캘린더 본문 (준비 중) */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
-        <h1 className="text-xl font-light tracking-[0.2em]">CALENDAR</h1>
-        <p className="text-sm tracking-wide text-text-muted">준비 중</p>
-      </div>
+      {/* 회원 생일 목록 */}
+      <BirthdayList />
     </main>
   );
 }
