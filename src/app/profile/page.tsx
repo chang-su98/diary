@@ -36,7 +36,7 @@ export default async function ProfilePage() {
       <Link
         href="/profile/edit"
         aria-label="프로필 수정"
-        className="absolute right-6 top-[3.25rem] p-1 transition-opacity hover:opacity-60"
+        className="absolute right-6 top-6 p-1 transition-opacity hover:opacity-60"
       >
         {/* SVG를 mask로 사용 → 테마색(bg-text)으로 채색, 다크모드 대응 */}
         <span
