@@ -17,7 +17,7 @@ const QUERY_KEY = ["anniversaries"] as const;
 
 async function fetchAnniversaries(): Promise<Anniversary[]> {
   const res = await fetch("/api/anniversaries");
-  if (!res.ok) throw new Error("기념일을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("일정을 불러오지 못했습니다.");
   const data: { anniversaries: Anniversary[] } = await res.json();
   return data.anniversaries;
 }
@@ -152,10 +152,32 @@ export function AnniversarySection() {
   const busy = saving || deleting;
 
   return (
-    <section className="pt-8">
-      <h2 className="mb-1 text-xs tracking-[0.2em] text-text-muted">
-        우리들의 기념일
-      </h2>
+    <section >
+      <div className="relative mb-2 flex items-center">
+        <h2 className="text-xs tracking-[0.2em] text-text-muted">우리의 일정</h2>
+        <button
+          type="button"
+          onClick={openAdd}
+          aria-label="일정 추가"
+          className="absolute right-0 flex size-7 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+            width={20}
+            height={20}
+            className="size-5 shrink-0"
+          >
+            <path
+              d="M12 5V19M5 12H19"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
 
       {isPending ? (
         <p className="py-6 text-center text-sm text-text-muted">불러오는 중…</p>
@@ -186,32 +208,10 @@ export function AnniversarySection() {
         </ul>
       ) : (
         <p className="py-5 text-center text-sm text-text-muted">
-          등록된 기념일이 없습니다.
+          등록된 일정이 없습니다.
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={openAdd}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line py-4 text-sm tracking-wide text-text-muted transition-colors hover:border-text hover:text-text active:scale-[0.99]"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-          width={18}
-          height={18}
-          className="size-[18px] shrink-0"
-        >
-          <path
-            d="M12 5V19M5 12H19"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-          />
-        </svg>
-        기념일 추가하기
-      </button>
 
       {/* 추가/수정 바텀시트 */}
       <Drawer.Root open={open} onOpenChange={setOpen}>
@@ -223,10 +223,10 @@ export function AnniversarySection() {
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-line bg-surface px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none">
             <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-line" />
             <Drawer.Title className="pb-4 pt-4 text-sm tracking-[0.15em] text-text-muted">
-              {editingId === null ? "기념일 추가" : "기념일 수정"}
+              {editingId === null ? "일정 추가" : "일정 수정"}
             </Drawer.Title>
             <Drawer.Description className="sr-only">
-              기념일 제목과 날짜를 입력합니다.
+              일정 제목과 날짜를 입력합니다.
             </Drawer.Description>
 
             <div className="flex flex-col gap-5">
@@ -247,12 +247,40 @@ export function AnniversarySection() {
                 <span className="text-xs tracking-[0.15em] text-text-muted">
                   날짜
                 </span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full border-b border-line bg-transparent py-2 outline-none transition-colors [color-scheme:light] focus:border-primary"
-                />
+                {/* 브라우저별 date UI 편차 대응: 커스텀 아이콘 + 빈값 placeholder */}
+                <div className="relative w-full">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker?.();
+                      } catch (err) {
+                        console.debug("[일정] showPicker 예외:", err);
+                      }
+                    }}
+                    className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
+                      date ? "" : "text-transparent"
+                    }`}
+                  />
+                  {!date && (
+                    <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-text-muted">
+                      YYYY / MM / DD
+                    </span>
+                  )}
+                  <svg
+                    aria-hidden
+                    width={18}
+                    height={18}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="pointer-events-none absolute right-0 top-1/2 size-[18px] -translate-y-1/2 text-text-muted"
+                  >
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M3 9.5H21M8 3V6M16 3V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                </div>
               </label>
 
               <button
@@ -287,25 +315,27 @@ export function AnniversarySection() {
                 매년 반복
               </button>
 
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => saveMutation.mutate()}
-                className="mt-2 w-full rounded-xl bg-primary py-4 text-sm tracking-[0.25em] text-white transition-all duration-200 hover:bg-primary-strong active:scale-[0.98] disabled:opacity-50"
-              >
-                {saving ? "저장 중…" : "SAVE"}
-              </button>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {editingId !== null && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => deleteMutation.mutate()}
+                    className="min-w-[8rem] flex-1 rounded-xl border border-error py-4 text-sm tracking-[0.25em] text-error transition-colors hover:bg-error/10 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {deleting ? "삭제 중…" : "삭제"}
+                  </button>
+                )}
 
-              {editingId !== null && (
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => deleteMutation.mutate()}
-                  className="text-center text-sm tracking-wide text-error transition-colors hover:underline disabled:opacity-50"
+                  onClick={() => saveMutation.mutate()}
+                  className="min-w-[8rem] flex-1 rounded-xl bg-primary py-4 text-sm tracking-[0.25em] text-white transition-all duration-200 hover:bg-primary-strong active:scale-[0.98] disabled:opacity-50"
                 >
-                  {deleting ? "삭제 중…" : "삭제"}
+                  {saving ? "저장 중…" : "SAVE"}
                 </button>
-              )}
+              </div>
 
               {err && (
                 <p className="text-center text-sm text-error" role="alert">

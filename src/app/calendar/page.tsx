@@ -1,13 +1,14 @@
 import { AnniversarySection } from "./anniversary-section";
 import { BirthdayList } from "./birthday-list";
+import { CalendarSwiper } from "./calendar-swiper";
 import { DayCounter } from "./day-counter";
 import { NextAnniversary } from "./next-anniversary";
 
 export default function CalendarPage() {
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-14">
-      {/* 상단 누적 일수 — 2026.03.30을 1일로 카운트업 */}
-      <section className="flex flex-col items-center gap-2 border-b border-line pb-10 pt-4">
+  // 슬라이드 1: 누적 일수 + 회원 생일 / 슬라이드 2: 일정
+  const slides = [
+    <div key="overview">
+      <section className="flex flex-col items-center gap-2 border-b border-line pb-10 ">
         <span className="text-[0.7rem] tracking-[0.3em] text-text-muted">
           SINCE 2026.03.30
         </span>
@@ -18,12 +19,14 @@ export default function CalendarPage() {
         </div>
         <NextAnniversary className="text-[0.7rem] tracking-[0.3em] text-text-muted" />
       </section>
-
-      {/* 회원 생일 목록 */}
       <BirthdayList />
+    </div>,
+    <AnniversarySection key="schedule" />,
+  ];
 
-      {/* 우리들의 기념일 — 추가/수정/삭제 */}
-      <AnniversarySection />
+  return (
+    <main className="mx-auto flex h-dvh w-full max-w-md flex-col pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+      <CalendarSwiper slides={slides} />
     </main>
   );
 }
