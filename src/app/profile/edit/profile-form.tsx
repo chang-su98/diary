@@ -222,6 +222,19 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         </Link>
       </div>
 
+      {/* 저장 중 딤 + 스피너 오버레이 */}
+      {saving && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          role="status"
+          aria-live="polite"
+          aria-label="저장 중"
+        >
+          <span className="size-10 animate-spin rounded-full border-[3px] border-white/25 border-t-white" />
+        </div>
+      )}
+
       {/* 사진 메뉴 — vaul Drawer 바텀시트 */}
       <Drawer.Root open={sheetOpen} onOpenChange={setSheetOpen}>
         <Drawer.Portal>
