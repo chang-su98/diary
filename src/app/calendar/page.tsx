@@ -25,7 +25,7 @@ export default function CalendarPage() {
   ];
 
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-md flex-col pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex h-dvh w-full max-w-md flex-col pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
       <CalendarSwiper slides={slides} />
     </main>
   );

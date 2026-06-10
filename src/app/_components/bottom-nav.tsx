@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useStandalone } from "@/lib/use-standalone";
 
 // 차근차근 추가 예정 — 현재 4개 탭 (public/asset/images/tabbar 기준)
 const ITEMS = [
   { href: "/", label: "홈", icon: "/asset/images/tabbar/home.svg" },
-  { href: "/calendar", label: "캘린더", icon: "/asset/images/tabbar/calendar.svg" },
+  { href: "/calendar", label: "디데이", icon: "/asset/images/tabbar/calendar.svg" },
   { href: "/gallery", label: "갤러리", icon: "/asset/images/tabbar/image.svg" },
-  { href: "/profile", label: "내 정보", icon: "/asset/images/tabbar/user.svg" },
+  { href: "/profile", label: "프로필", icon: "/asset/images/tabbar/user.svg" },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -17,11 +18,19 @@ function isActive(pathname: string, href: string) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const standalone = useStandalone();
   // 로그인 화면에서는 숨김
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-line bg-surface shadow-[0_-2px_16px_rgba(0,0,0,0.05)]">
+    <nav
+      className={`fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-line shadow-[0_-2px_16px_rgba(0,0,0,0.05)] ${
+        // 설치형 PWA(주로 iOS)에서는 반투명 + 백드롭 블러로 네이티브 탭바 질감
+        standalone
+          ? "bg-surface/75 backdrop-blur-xl"
+          : "bg-surface"
+      }`}
+    >
       <ul className="mx-auto flex max-w-md items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
         {ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
@@ -29,9 +38,8 @@ export function BottomNav() {
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
-                aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className="flex items-center justify-center py-3.5"
+                className="flex flex-col items-center justify-center gap-1 py-2"
               >
                 {/* SVG를 mask로 사용 → 테마 색(currentColor 대신 bg)으로 채색 */}
                 <span
@@ -50,6 +58,14 @@ export function BottomNav() {
                     WebkitMaskSize: "contain",
                   }}
                 />
+                {/* 아이콘 아래 라벨 — 활성 탭은 강조색 */}
+                <span
+                  className={`text-[0.6875rem] leading-none transition-colors duration-200 ${
+                    active ? "font-medium text-primary" : "text-text-muted"
+                  }`}
+                >
+                  {item.label}
+                </span>
               </Link>
             </li>
           );

@@ -22,6 +22,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#1e1e1e",
+  // iOS standalone PWA에서 env(safe-area-inset-*) 값을 실제 인셋으로 채우려면 필수
+  // (미지정 시 항상 0 → 홈 인디케이터가 하단 탭바를 침범)
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

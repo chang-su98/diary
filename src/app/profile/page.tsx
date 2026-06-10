@@ -32,7 +32,7 @@ export default async function ProfilePage() {
   ];
 
   return (
-    <main className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-14">
+    <main className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Link
         href="/profile/edit"
         aria-label="프로필 수정"
