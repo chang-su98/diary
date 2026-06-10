@@ -1,5 +1,6 @@
 import { BirthdayList } from "./birthday-list";
 import { DayCounter } from "./day-counter";
+import { NextAnniversary } from "./next-anniversary";
 
 export default function CalendarPage() {
   return (
@@ -14,6 +15,7 @@ export default function CalendarPage() {
           <DayCounter className="inline-block min-w-[2ch] text-center text-7xl font-extralight leading-none tabular-nums" />
           <span className="self-end pb-1 text-xl font-light text-text-muted">일</span>
         </div>
+        <NextAnniversary className="text-[0.7rem] tracking-[0.3em] text-text-muted" />
       </section>
 
       {/* 회원 생일 목록 */}
