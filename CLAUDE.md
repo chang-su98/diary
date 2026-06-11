@@ -14,21 +14,23 @@
 - `pnpm exec prisma migrate dev --name <name>` — 마이그레이션 생성·적용
 - `pnpm exec prisma studio` — 데이터 GUI 확인
 
-### MariaDB (Docker 미사용 — Windows 네이티브)
+### Database (Neon Postgres)
 
-- MariaDB 12.3 을 **Windows 서비스**로 실행한다 (서비스명 `MariaDB`, `localhost:3306`).
-- 상태 확인/시작 (관리자 PowerShell): `Get-Service MariaDB` / `Start-Service MariaDB`
-- 로컬 DB·사용자: DB `diary`, user `diary`/`diary` (연결 문자열은 `.env`의 `DATABASE_URL`).
+- **Neon**(서버리스 Postgres)을 dev·prod 공통으로 사용한다. 로컬에 DB를 띄우지 않는다.
+- 연결 문자열은 `.env`의 `DATABASE_URL`(Neon **다이렉트**/언풀드 엔드포인트). 풀드(-pooler)는 pg 어댑터 + PgBouncer prepared-statement 충돌이 있어 사용하지 않는다.
+- 계정은 시드로 생성: `pnpm exec prisma db seed` (`.env`의 `SEED_*_PASSWORD` 사용).
+- (참고: 이전엔 로컬 MariaDB였으나 배포를 위해 Neon Postgres로 이전함.)
 
 ## Architecture
 
 - **Framework**: Next.js 16.2, App Router (`src/app/`), React 19, Turbopack, React Compiler 활성화
 - **Styling**: Tailwind CSS v4 (`@tailwindcss/postcss`); 테마 토큰은 `src/app/globals.css`의 `@theme inline`
 - **Path alias**: `@/*` → `./src/*`
-- **Database**: MariaDB 12.3 (네이티브) + Prisma 7
-  - 런타임 연결: `@prisma/adapter-mariadb` 어댑터 (`src/lib/prisma.ts`)
-  - 마이그레이션 연결: `prisma.config.ts`의 `datasource.url`
+- **Database**: Neon Postgres + Prisma 7
+  - 런타임 연결: `@prisma/adapter-pg` 어댑터 (`src/lib/prisma.ts`, `DATABASE_URL`)
+  - 마이그레이션 연결: `prisma.config.ts`의 `datasource.url` (동일 `DATABASE_URL`)
   - Prisma 7 신규 `prisma-client` generator → 생성물은 `src/generated/prisma` (import는 `@/generated/prisma/client`)
+  - **이미지 등 파일은 DB에 두지 않고 스토리지(`src/lib/storage.ts`)에**: dev=로컬 디스크(`.storage/`), prod=R2(예정). `STORAGE_DRIVER`로 전환.
 - **State**: Zustand (클라이언트 UI) + TanStack Query (서버 데이터, `src/app/_components/query-provider.tsx`)
 - **Validation**: Zod 스키마는 `src/lib/schemas/`에 정의 (도입 예정)
 - **PWA**: `src/app/manifest.ts` + `public/sw.js`(미니 서비스워커, 프로덕션에서만 등록) + `public/icon.svg`

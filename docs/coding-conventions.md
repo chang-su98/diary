@@ -148,8 +148,9 @@ export const useAppStore = create<AppState>((set) => ({
 
 | 변수 | 용도 | 사용 위치 |
 |------|------|----------|
-| `DATABASE_URL` | Prisma CLI (migration, generate) | prisma.config.ts |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | 런타임 DB 연결 | src/lib/prisma.ts |
+| `DATABASE_URL` | Neon Postgres 연결 (런타임·마이그레이션 공용) | src/lib/prisma.ts, prisma.config.ts |
+| `JWT_SECRET` | 세션 토큰 서명 | src/lib/session |
+| `SEED_*_PASSWORD` | 시드 계정 비밀번호 | prisma/seed.ts |
+| `STORAGE_DRIVER` / `STORAGE_LOCAL_DIR` | 파일 스토리지 어댑터 선택/로컬 경로 | src/lib/storage.ts |
 
-- `.env` 파일은 gitignore 처리됨
-- Docker 환경에서는 `docker-compose.yml`의 environment로 주입
+- `.env` 파일은 gitignore 처리됨 (`.env.example` 참고)

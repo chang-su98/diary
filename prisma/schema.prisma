@@ -1,4 +1,4 @@
-// Prisma 7 — 새 prisma-client generator + driver adapter(MariaDB)
+// Prisma 7 — 새 prisma-client generator + driver adapter(Postgres/Neon)
 // 문서: output 경로 필수, import는 ".../generated/prisma/client"
 
 generator client {
@@ -7,9 +7,9 @@ generator client {
 }
 
 datasource db {
-  // MariaDB는 mysql 커넥터를 사용한다 (@prisma/adapter-mariadb로 연결)
+  // Postgres(Neon) — @prisma/adapter-pg로 연결
   // Prisma 7: 연결 URL은 스키마가 아닌 prisma.config.ts 에서 관리
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 // 사용자 — 폐쇄형 2인 앱(공개 가입 없음). 계정은 시드로 생성.
@@ -20,7 +20,7 @@ model User {
   displayName  String?   @db.VarChar(50) // 이름
   birthday     DateTime? // 생일
   email        String?   @db.VarChar(255) // 이메일
-  avatar       String?   @db.MediumText // 프로필 사진 (data URL)
+  avatar       String?   @db.Text // 프로필 사진 (data URL)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
 
@@ -55,8 +55,8 @@ model Photo {
   id        Int      @id @default(autoincrement())
   dataKey   String? // 원본 스토리지 key (신규 업로드)
   thumbKey  String? // 썸네일 스토리지 key (신규 업로드)
-  data      String?  @db.MediumText // (레거시) 원본 base64 — 스토리지 이전 사진 폴백
-  thumb     String?  @db.MediumText // (레거시) 썸네일 base64 — 폴백
+  data      String?  @db.Text // (레거시) 원본 base64 — 스토리지 이전 사진 폴백
+  thumb     String?  @db.Text // (레거시) 썸네일 base64 — 폴백
   width     Int // 표시 비율용 가로 px
   height    Int // 표시 비율용 세로 px
   authorId  Int? // 올린 사람(User) — 삭제 시 null

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 // 시드: 폐쇄형 2인 앱의 계정을 생성한다(공개 가입 없음).
 // 멱등 — 이미 있으면 비밀번호를 재해시하지 않고 그대로 둔다.
@@ -10,7 +10,7 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL 환경변수가 설정되지 않았습니다 (.env 확인).");
 }
-const adapter = new PrismaMariaDb(databaseUrl);
+const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
 
 const accounts = [
