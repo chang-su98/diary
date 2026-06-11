@@ -10,9 +10,9 @@ import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 // 갤러리 한 페이지 크기 — 페이지·API 공통
 export const PHOTO_PAGE_SIZE = 10;
 
-// 스토리지 용량 상한(바이트). R2 무료 10GB 대비 여유(기본 9GB). env로 조정 가능.
+// 스토리지 용량 상한(바이트). R2 무료 10GB 대비 여유(기본 9.5GB). env로 조정 가능.
 const STORAGE_MAX_BYTES = Number(
-  process.env.STORAGE_MAX_BYTES ?? 9_000_000_000
+  process.env.STORAGE_MAX_BYTES ?? 9_500_000_000
 );
 
 // 그리드용 — 이미지 바이트는 스토리지에 있으므로 메타만 반환(클라이언트가 /raw URL 구성).
