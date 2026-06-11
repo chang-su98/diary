@@ -8,7 +8,7 @@ import { photoCreateSchema } from "@/lib/schemas/photo";
 import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
-export const PHOTO_PAGE_SIZE = 10;
+export const PHOTO_PAGE_SIZE = 15;
 
 // 스토리지 용량 상한(바이트). R2 무료 10GB 대비 여유(기본 9.5GB). env로 조정 가능.
 const STORAGE_MAX_BYTES = Number(

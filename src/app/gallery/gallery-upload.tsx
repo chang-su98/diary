@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
 import { useGalleryStore } from "@/lib/gallery-store";
 import type { GalleryPhoto } from "./types";
@@ -40,8 +41,11 @@ export function GalleryUpload({
 }: {
   currentUser: GalleryPhoto["author"];
 }) {
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  // 업로드 진행도 — done/total(파일 단위). indeterminate 스피너 대신 프로그레스바 표시용.
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [msg, setMsg] = useState<string | null>(null);
   const prependMany = useGalleryStore((s) => s.prependMany);
 
@@ -51,6 +55,7 @@ export function GalleryUpload({
     if (files.length === 0) return;
 
     setBusy(true);
+    setProgress({ done: 0, total: files.length });
     setMsg(null);
     let firstError: string | null = null;
     let next = 0;
@@ -68,6 +73,9 @@ export function GalleryUpload({
             firstError =
               error instanceof Error ? error.message : "업로드에 실패했습니다.";
           }
+        } finally {
+          // 성공·실패 무관하게 한 장 처리 완료 → 진행도 1 증가
+          setProgress((p) => ({ ...p, done: p.done + 1 }));
         }
       }
     }
@@ -87,7 +95,20 @@ export function GalleryUpload({
     } finally {
       setBusy(false);
     }
+
+    // 낙관적 추가의 슬라이드 애니메이션이 일부 재생된 뒤 서버 데이터로 재시드.
+    // page.tsx의 GalleryGrid가 key 변경으로 리마운트되며 masonic이 처음부터
+    // 다시 배치 → prepend로 어긋난 레이아웃을 바로잡는다(수동 새로고침 불필요).
+    if (uploaded.length > 0) {
+      window.setTimeout(() => router.refresh(), 250);
+    }
   }
+
+  // 0~100(%). total이 0이면 0으로 안전 처리.
+  const pct =
+    progress.total > 0
+      ? Math.round((progress.done / progress.total) * 100)
+      : 0;
 
   return (
     <>
@@ -146,7 +167,24 @@ export function GalleryUpload({
             aria-live="polite"
             aria-label="업로드 중"
           >
-            <span className="size-10 animate-spin rounded-full border-[3px] border-white/25 border-t-white" />
+            <div className="w-56 max-w-[70vw]">
+              <p className="mb-2 text-center text-sm font-medium text-white">
+                업로드 중 {progress.done}/{progress.total}
+              </p>
+              {/* 진행 트랙 + 채움. 파일 1장 완료마다 width가 전환되어 부드럽게 채워진다. */}
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-white/25"
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-white transition-[width] duration-300 ease-out"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
           </div>,
           document.body
         )}

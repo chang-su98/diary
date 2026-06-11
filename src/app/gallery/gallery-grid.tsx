@@ -201,7 +201,7 @@ function PhotoMasonry({
   if (!isClient) {
     // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
     return (
-      <div className="columns-2 gap-2 [&>*]:mb-2">
+      <div className="columns-3 gap-2 [&>*]:mb-2">
         {items.map((p) => (
           <GalleryTile key={p.id} photo={p} onSelect={onSelect} />
         ))}
@@ -212,7 +212,7 @@ function PhotoMasonry({
   return (
     <Masonry
       items={items}
-      columnCount={2}
+      columnCount={3}
       columnGutter={8}
       rowGutter={8}
       itemKey={(p) => p.id}
