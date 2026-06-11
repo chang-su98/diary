@@ -112,7 +112,7 @@
   /* 페이지 이동 전환 — 진입 시 페이드인 */
   --animate-page-fade: page-fade 0.3s ease-out both;
   /* 콜드 스타트 스플래시 — 잠시 머문 뒤 페이드아웃 후 숨김 */
-  --animate-splash: splash-out 1.4s ease-in forwards;
+  --animate-splash: splash-out 1s ease-in forwards;
 }
 
 @keyframes fade-up {
@@ -139,7 +139,7 @@
 
 @keyframes splash-out {
   0%,
-  55% {
+  70% {
     opacity: 1;
     visibility: visible;
   }
