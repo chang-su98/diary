@@ -99,7 +99,7 @@ function GalleryTile({
       {selecting && (
         <span
           aria-hidden
-          className={`absolute left-2 top-2 flex size-6 items-center justify-center rounded-full border transition-colors ${
+          className={`absolute left-2 top-2 flex size-6 animate-modal-pop items-center justify-center rounded-full border transition-colors ${
             selected
               ? "border-[#007aff] bg-[#007aff]"
               : "border-white/80 bg-black/20"

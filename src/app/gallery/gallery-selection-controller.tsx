@@ -57,13 +57,13 @@ export function GallerySelectionController() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[75] flex items-center justify-center px-8"
+      className="animate-modal-fade fixed inset-0 z-[75] flex items-center justify-center px-8"
       style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
       role="dialog"
       aria-modal="true"
       aria-label="사진 삭제 확인"
     >
-      <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-surface">
+      <div className="animate-modal-pop w-full max-w-xs overflow-hidden rounded-2xl bg-surface">
         <div className="px-6 pb-5 pt-6 text-center">
           <p className="text-base font-medium text-text">
             {ids.length}장의 사진을 삭제할까요?

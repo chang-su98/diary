@@ -186,7 +186,7 @@ export function GalleryUpload({
           />
           <div
             role="menu"
-            className="absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+            className="absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 origin-top-right animate-modal-pop overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
           >
             <button
               type="button"
