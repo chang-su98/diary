@@ -69,7 +69,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
         createPortal(
           // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
           <div
-            className="fixed inset-0 z-[60] flex flex-col bg-black/85"
+            className="fixed inset-0 z-[60] flex flex-col bg-bg"
             role="dialog"
             aria-modal="true"
             aria-label="사진 상세"
@@ -80,7 +80,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
             className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="size-9 overflow-hidden rounded-full border border-white/30 bg-white/10">
+            <span className="size-9 overflow-hidden rounded-full border border-line bg-bg">
               {selected.author?.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element -- data URL 이미지
                 <img
@@ -89,12 +89,12 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
                   className="size-full object-cover"
                 />
               ) : (
-                <span className="flex size-full items-center justify-center text-sm font-light text-white">
+                <span className="flex size-full items-center justify-center text-sm font-light text-text-muted">
                   {(selected.author?.username ?? "?").charAt(0).toUpperCase()}
                 </span>
               )}
             </span>
-            <span className="text-sm tracking-wide text-white">
+            <span className="text-sm tracking-wide text-text">
               {selected.author?.username ?? "알 수 없음"}
             </span>
 
@@ -102,7 +102,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
               type="button"
               onClick={() => setSelected(null)}
               aria-label="닫기"
-              className="ml-auto p-1 text-white/80 transition-opacity hover:opacity-60"
+              className="ml-auto p-1 text-text transition-opacity hover:opacity-60"
             >
               <svg
                 viewBox="0 0 24 24"
