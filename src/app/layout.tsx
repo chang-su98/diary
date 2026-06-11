@@ -7,13 +7,13 @@ import { PageTransition } from "./_components/page-transition";
 import { PullToRefresh } from "./_components/pull-to-refresh";
 
 export const metadata: Metadata = {
-  title: "RECORD",
+  title: "Record",
   description: "함께 쓰는 기록 앱",
-  applicationName: "RECORD",
+  applicationName: "Record",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RECORD",
+    title: "Record",
   },
   icons: {
     icon: "/icon.svg",
