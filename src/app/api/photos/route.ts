@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
-import { photoCreateSchema } from "@/lib/schemas/photo";
+import { photoCreateSchema, photoDeleteSchema } from "@/lib/schemas/photo";
 import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
@@ -138,5 +138,81 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[POST /api/photos]", error);
     return NextResponse.json({ error: "서버 오류가 발생했습니다." }, { status: 500 });
+  }
+}
+
+// 사진 일괄 삭제 — 공유 권한(인증만 되면 누구 사진이든 삭제).
+// DB 행을 먼저 지우고 스토리지 객체는 best-effort 정리한다.
+// (순서가 뒤집혀 실패하면 "행은 있는데 파일 없는 깨진 이미지"가 생긴다.
+//  DB 먼저면 최악이 "고아 파일"이라 덜 해롭다.)
+export async function DELETE(req: NextRequest) {
+  try {
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json(
+        { error: "許可されていないリクエストです" },
+        { status: 403 }
+      );
+    }
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.warn("[DELETE /api/photos] Request body 파싱 실패:", error);
+      return NextResponse.json(
+        { error: "リクエストが正しくありません" },
+        { status: 400 }
+      );
+    }
+
+    const parsed = photoDeleteSchema.safeParse(body);
+    if (!parsed.success) {
+      console.warn("[DELETE /api/photos] 입력 검증 실패:", parsed.error.issues);
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "入力値が正しくありません" },
+        { status: 400 }
+      );
+    }
+    const { ids } = parsed.data;
+
+    // 행 삭제 전에 스토리지 키 수집
+    const targets = await prisma.photo.findMany({
+      where: { id: { in: ids } },
+      select: { dataKey: true, thumbKey: true },
+    });
+
+    // DB 먼저 삭제
+    const { count } = await prisma.photo.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    // 스토리지 best-effort 정리 — 실패해도 요청은 성공 처리(고아 파일만 남음)
+    const keys = targets
+      .flatMap((p) => [p.dataKey, p.thumbKey])
+      .filter((k): k is string => typeof k === "string");
+    if (keys.length > 0) {
+      const storage = getStorage();
+      const results = await Promise.allSettled(
+        keys.map((k) => storage.delete(k))
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed > 0) {
+        console.warn(
+          `[DELETE /api/photos] 스토리지 정리 일부 실패: ${failed}/${keys.length}`
+        );
+      }
+    }
+
+    return NextResponse.json({ deleted: count });
+  } catch (error) {
+    console.error("[DELETE /api/photos]", error);
+    return NextResponse.json(
+      { error: "サーバーエラーが発生しました" },
+      { status: 500 }
+    );
   }
 }

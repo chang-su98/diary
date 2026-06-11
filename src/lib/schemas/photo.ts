@@ -16,3 +16,11 @@ export const photoCreateSchema = z.object({
 });
 
 export type PhotoCreateInput = z.infer<typeof photoCreateSchema>;
+
+// 사진 일괄 삭제 — 선택한 사진 id 배열(유저 대면 메시지 일본어)
+export const photoDeleteSchema = z.object({
+  ids: z
+    .array(z.number().int().positive())
+    .min(1, "削除する写真を選択してください")
+    .max(100, "一度に削除できるのは100枚までです"),
+});
