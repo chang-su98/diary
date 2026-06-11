@@ -62,6 +62,8 @@ function GalleryTile({
   const selecting = useGallerySelectionStore((s) => s.selecting);
   const selected = useGallerySelectionStore((s) => s.selectedIds.has(photo.id));
   const toggle = useGallerySelectionStore((s) => s.toggle);
+  // 삭제 중이면 타일을 축소·페이드아웃(배열에선 그대로 둬 masonic 크래시 회피)
+  const deleting = useGalleryStore((s) => s.deletingIds.has(photo.id));
 
   return (
     <button
@@ -71,9 +73,9 @@ function GalleryTile({
         selecting ? (selected ? "선택 해제" : "사진 선택") : "사진 자세히 보기"
       }
       aria-pressed={selecting ? selected : undefined}
-      className={`relative block w-full break-inside-avoid overflow-hidden rounded-xl border bg-bg transition hover:opacity-90 active:opacity-80 ${
+      className={`relative block w-full break-inside-avoid overflow-hidden rounded-xl border bg-bg transition-[opacity,transform] duration-300 hover:opacity-90 active:opacity-80 ${
         selected ? "border-[#007aff] ring-2 ring-[#007aff]" : "border-line"
-      }`}
+      } ${deleting ? "scale-90 opacity-0" : ""}`}
       // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
       style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
     >
