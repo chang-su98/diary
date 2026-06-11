@@ -6,7 +6,7 @@ import { isSameOriginRequest } from "@/lib/security";
 import { photoCreateSchema } from "@/lib/schemas/photo";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
-export const PHOTO_PAGE_SIZE = 20;
+export const PHOTO_PAGE_SIZE = 10;
 
 // 상세 모달 등록자 표시용 — author는 삭제 시 null
 const photoSelect = {
