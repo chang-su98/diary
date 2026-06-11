@@ -14,7 +14,7 @@ export function Splash() {
       className="animate-splash fixed inset-0 z-50 flex items-center justify-center bg-bg"
     >
       <span className="pl-[0.45em] text-3xl font-light tracking-[0.45em] text-text">
-        Record
+        RECORD
       </span>
     </div>
   );
