@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+
+// SSR(클라이언트 컴포넌트의 서버 렌더)에서 useLayoutEffect 경고를 피하기 위한 분기.
+// 모듈 로드 시 1회 결정되므로 훅 호출 규칙 위반이 아니다.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 type Photo = {
   id: number;
@@ -21,6 +26,39 @@ type Photo = {
  */
 export function GalleryGrid({ photos }: { photos: Photo[] }) {
   const [selected, setSelected] = useState<Photo | null>(null);
+
+  // FLIP: 새 사진이 추가돼 메이슨리가 재배치될 때 기존 타일이 이전 위치에서
+  // 새 위치로 부드럽게 이동하도록 한다. (View Transitions 대신 표준 DOM만 사용)
+  const tilesRef = useRef<Map<number, HTMLElement>>(new Map());
+  const lastRectsRef = useRef<Map<number, DOMRect>>(new Map());
+
+  useIsomorphicLayoutEffect(() => {
+    const prev = lastRectsRef.current;
+    const next = new Map<number, DOMRect>();
+    tilesRef.current.forEach((el, id) => {
+      const rect = el.getBoundingClientRect();
+      next.set(id, rect);
+      const old = prev.get(id);
+      if (!old) return; // 신규 타일은 CSS animate-tile-in으로 등장
+      const dx = old.left - rect.left;
+      const dy = old.top - rect.top;
+      if (!dx && !dy) return;
+      // Invert: 이전 위치로 즉시 되돌린 뒤
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      void el.offsetWidth; // 강제 리플로우로 시작 상태 확정
+      // Play: 새 위치로 애니메이션
+      el.style.transition = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transform = "";
+      const onDone = () => {
+        // 인라인 스타일 정리 → Tailwind transition-opacity(hover) 복원
+        el.style.transition = "";
+        el.removeEventListener("transitionend", onDone);
+      };
+      el.addEventListener("transitionend", onDone);
+    });
+    lastRectsRef.current = next;
+  });
 
   // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
   // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
@@ -45,6 +83,10 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
         {photos.map((p, i) => (
           <button
             key={p.id}
+            ref={(el) => {
+              if (el) tilesRef.current.set(p.id, el);
+              else tilesRef.current.delete(p.id);
+            }}
             type="button"
             onClick={() => setSelected(p)}
             aria-label="사진 자세히 보기"
