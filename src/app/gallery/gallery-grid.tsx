@@ -24,7 +24,6 @@ function useIsClient() {
 
 type Photo = {
   id: number;
-  thumb: string; // 그리드용 썸네일 — 원본(data)은 상세 열 때 별도 fetch
   width: number;
   height: number;
   author: {
@@ -33,6 +32,10 @@ type Photo = {
     avatar: string | null;
   } | null;
 };
+
+// 이미지 서빙 URL — 바이트는 스토리지에서 라우트로 서빙(브라우저 캐시 적용)
+const thumbUrl = (id: number) => `/api/photos/${id}/raw?v=thumb`;
+const fullUrl = (id: number) => `/api/photos/${id}/raw?v=full`;
 
 type PhotosPage = { photos: Photo[]; nextCursor: number | null };
 
@@ -109,9 +112,9 @@ export function GalleryGrid({
       // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
       style={{ aspectRatio: `${p.width} / ${p.height}` }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
       <img
-        src={p.thumb}
+        src={thumbUrl(p.id)}
         alt=""
         loading="lazy"
         className="size-full object-cover"
@@ -157,9 +160,9 @@ export function GalleryGrid({
 }
 
 /**
- * 사진 상세 라이트박스. 그리드는 썸네일만 받으므로 여기서 원본(data)을 별도 fetch한다.
- * 원본이 도착하기 전에는 썸네일을 확대해 placeholder로 즉시 보여주고, 도착하면 교체한다.
- * 선택 사진 id로 부모가 key를 주어 사진 전환 시 리마운트 → 매번 새 fetch(상태 reset effect 불필요).
+ * 사진 상세 라이트박스. 그리드에서 이미 받은 썸네일(캐시)을 즉시 띄우고,
+ * 원본 URL을 백그라운드로 프리로드한 뒤 도착하면 교체한다(별도 JSON fetch 없음).
+ * 선택 사진 id로 부모가 key를 주어 사진 전환 시 리마운트 → 매번 새 프리로드.
  */
 function PhotoDetail({
   photo,
@@ -168,21 +171,16 @@ function PhotoDetail({
   photo: Photo;
   onClose: () => void;
 }) {
-  const [fullData, setFullData] = useState<string | null>(null);
+  // 썸네일 URL로 시작(그리드에서 캐시됨 → 즉시 표시), 원본 로드되면 교체
+  const [src, setSrc] = useState(() => thumbUrl(photo.id));
 
-  // 원본 로드 — setState는 비동기 콜백 안에서만 호출(set-state-in-effect 룰 무관)
+  // 원본 프리로드 — setState는 img onload 콜백에서만 호출(set-state-in-effect 룰 무관)
   useEffect(() => {
-    let ignore = false;
-    fetch(`/api/photos/${photo.id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json: { data: string } | null) => {
-        if (!ignore && json) setFullData(json.data);
-      })
-      .catch((error: unknown) => {
-        console.warn("[gallery] 원본 로드 실패:", error);
-      });
+    const img = new Image();
+    img.src = fullUrl(photo.id);
+    img.onload = () => setSrc(fullUrl(photo.id));
     return () => {
-      ignore = true;
+      img.onload = null;
     };
   }, [photo.id]);
 
@@ -242,11 +240,11 @@ function PhotoDetail({
         </button>
       </div>
 
-      {/* 사진 자세히 보기 — 원본 도착 전엔 썸네일을 placeholder로 표시 */}
+      {/* 사진 자세히 보기 — 썸네일 즉시 표시 후 원본으로 교체 */}
       <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
         <img
-          src={fullData ?? photo.thumb}
+          src={src}
           alt=""
           onClick={(e) => e.stopPropagation()}
           className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"

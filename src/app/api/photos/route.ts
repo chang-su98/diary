@@ -1,18 +1,19 @@
+import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
 import { photoCreateSchema } from "@/lib/schemas/photo";
+import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
 export const PHOTO_PAGE_SIZE = 10;
 
-// 그리드용 — 원본(data)은 제외하고 썸네일(thumb)만. 원본은 상세 라우트에서 별도 로드.
+// 그리드용 — 이미지 바이트는 스토리지에 있으므로 메타만 반환(클라이언트가 /raw URL 구성).
 // author는 등록자 표시용(삭제 시 null).
 const photoSelect = {
   id: true,
-  thumb: true,
   width: true,
   height: true,
   author: { select: { username: true, displayName: true, avatar: true } },
@@ -94,8 +95,26 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, thumb, width, height } = parsed.data;
+
+    // base64 → 바이너리로 디코드해 스토리지에 저장하고 DB엔 key만 보관
+    const full = dataUrlToBuffer(data);
+    const thumbBuf = dataUrlToBuffer(thumb);
+    if (!full || !thumbBuf) {
+      return NextResponse.json(
+        { error: "입력값이 올바르지 않습니다." },
+        { status: 400 }
+      );
+    }
+    const uuid = randomUUID();
+    const dataKey = `photos/${uuid}/full.${full.ext}`;
+    const thumbKey = `photos/${uuid}/thumb.${thumbBuf.ext}`;
+    const storage = getStorage();
+    await storage.put(dataKey, full.buffer, full.contentType);
+    await storage.put(thumbKey, thumbBuf.buffer, thumbBuf.contentType);
+
     const photo = await prisma.photo.create({
-      data: { data, thumb, width, height, authorId }, // 올린 사용자를 작성자로 기록
+      // 올린 사용자를 작성자로 기록 (data/thumb base64는 더 이상 저장하지 않음)
+      data: { dataKey, thumbKey, width, height, authorId },
       select: { id: true },
     });
     return NextResponse.json({ photo }, { status: 201 });

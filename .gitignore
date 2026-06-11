@@ -20,6 +20,9 @@
 # production
 /build
 
+# 로컬 파일 스토리지(이미지 등) — 로컬 디스크 어댑터 저장 위치. 배포 시 R2/S3로 대체.
+/.storage/
+
 # misc
 .DS_Store
 *.pem

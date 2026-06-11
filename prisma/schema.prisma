@@ -49,10 +49,14 @@ model Anniversary {
 // 갤러리 사진 — 폐쇄형 2인 공유. 핀터레스트식 메이슨리로 표시.
 // 이미지는 클라이언트에서 비율 유지 리사이즈 후 data URL(jpeg/png/webp)로 저장.
 // width/height는 레이아웃 시프트 방지를 위한 원본 표시 비율.
+// 이미지 바이트는 파일 스토리지(로컬 디스크/R2)에 저장하고 DB엔 key만 보관한다.
+// data/thumb(base64)는 스토리지 도입 이전 사진의 폴백용으로 nullable 유지.
 model Photo {
   id        Int      @id @default(autoincrement())
-  data      String   @db.MediumText // 원본(리사이즈 1280px) data URL — 상세 모달용
-  thumb     String   @db.MediumText // 썸네일(≈400px) data URL — 갤러리 그리드용
+  dataKey   String? // 원본 스토리지 key (신규 업로드)
+  thumbKey  String? // 썸네일 스토리지 key (신규 업로드)
+  data      String?  @db.MediumText // (레거시) 원본 base64 — 스토리지 이전 사진 폴백
+  thumb     String?  @db.MediumText // (레거시) 썸네일 base64 — 폴백
   width     Int // 표시 비율용 가로 px
   height    Int // 표시 비율용 세로 px
   authorId  Int? // 올린 사람(User) — 삭제 시 null

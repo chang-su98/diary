@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `photos` ADD COLUMN `dataKey` VARCHAR(191) NULL,
+    ADD COLUMN `thumbKey` VARCHAR(191) NULL,
+    MODIFY `data` MEDIUMTEXT NULL,
+    MODIFY `thumb` MEDIUMTEXT NULL;

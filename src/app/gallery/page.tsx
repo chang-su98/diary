@@ -15,8 +15,7 @@ export default async function GalleryPage() {
     orderBy: { id: "desc" }, // id desc = 최신순(autoincrement), 커서와 일치
     take: PHOTO_PAGE_SIZE,
     select: {
-      id: true,
-      thumb: true, // 그리드는 썸네일만 — 원본은 상세 열 때 별도 로드
+      id: true, // 이미지는 /api/photos/[id]/raw 로 서빙 — 메타만 내려보냄
       width: true,
       height: true,
       // 상세 모달의 등록자 표시용 — author는 삭제 시 null
