@@ -53,13 +53,15 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
     };
   }, [selected]);
 
-  // masonic 셀 렌더 — data는 photos 배열의 항목, width는 계산된 컬럼 폭
-  const renderTile = ({ data: p }: RenderComponentProps<Photo>) => (
+  // 타일 마크업 — masonic 셀과 SSR 폴백(CSS columns)이 공유.
+  // break-inside-avoid는 폴백에서만 의미 있고 masonic(절대 배치)에선 무해.
+  const renderButton = (p: Photo) => (
     <button
+      key={p.id}
       type="button"
       onClick={() => setSelected(p)}
       aria-label="사진 자세히 보기"
-      className="block w-full overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
+      className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
       // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
       style={{ aspectRatio: `${p.width} / ${p.height}` }}
     >
@@ -73,9 +75,13 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
     </button>
   );
 
+  // masonic 셀 렌더 — data는 photos 항목
+  const renderTile = ({ data }: RenderComponentProps<Photo>) =>
+    renderButton(data);
+
   return (
     <>
-      {isClient && (
+      {isClient ? (
         <Masonry
           items={photos}
           columnCount={2}
@@ -84,6 +90,11 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
           itemKey={(p) => p.id}
           render={renderTile}
         />
+      ) : (
+        // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
+        <div className="columns-2 gap-2 [&>*]:mb-2">
+          {photos.map(renderButton)}
+        </div>
       )}
 
       {/* 모달은 body로 포털 — PageTransition의 transform 쌓임 맥락을 벗어나
