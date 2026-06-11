@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
@@ -38,21 +38,38 @@ async function uploadOne(
 
 export function GalleryUpload({
   currentUser,
+  hasPhotos,
 }: {
   currentUser: GalleryPhoto["author"];
+  // 현재 서버에 사진이 있어 GalleryGrid가 마운트돼 있는지. 업로드 후 레이아웃 보정
+  // 방식을 분기한다(있으면 로컬 리레이아웃, 빈 갤러리면 서버 재시드).
+  hasPhotos: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  // 업로드 후 레이아웃 보정 타이머. 언마운트/다음 업로드 시 정리해 유실 호출 방지.
+  const reflowTimer = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   // 업로드 진행도 — done/total(파일 단위). indeterminate 스피너 대신 프로그레스바 표시용.
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [msg, setMsg] = useState<string | null>(null);
   const prependMany = useGalleryStore((s) => s.prependMany);
+  const bumpLayout = useGalleryStore((s) => s.bumpLayout);
+
+  // 언마운트 시 대기 중인 보정 타이머 정리(언마운트 후 발화 방지)
+  useEffect(() => {
+    return () => {
+      if (reflowTimer.current !== null) window.clearTimeout(reflowTimer.current);
+    };
+  }, []);
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // 같은 파일 재선택 허용
     if (files.length === 0) return;
+
+    // 직전 업로드의 보정 타이머가 남아 있으면 취소(중복 발화 방지)
+    if (reflowTimer.current !== null) window.clearTimeout(reflowTimer.current);
 
     setBusy(true);
     setProgress({ done: 0, total: files.length });
@@ -96,11 +113,16 @@ export function GalleryUpload({
       setBusy(false);
     }
 
-    // 낙관적 추가의 슬라이드 애니메이션이 일부 재생된 뒤 서버 데이터로 재시드.
-    // page.tsx의 GalleryGrid가 key 변경으로 리마운트되며 masonic이 처음부터
-    // 다시 배치 → prepend로 어긋난 레이아웃을 바로잡는다(수동 새로고침 불필요).
+    // 낙관적 추가의 슬라이드 애니메이션이 일부 재생된 뒤 레이아웃을 보정한다.
+    // - 기존 그리드가 있으면: masonic만 리마운트(로컬 리레이아웃) → 무한스크롤 누적·
+    //   스크롤 위치 보존, 서버 왕복 없음.
+    // - 빈 갤러리였으면: 그리드 자체가 없으니 서버 재시드(router.refresh)로 띄운다.
     if (uploaded.length > 0) {
-      window.setTimeout(() => router.refresh(), 250);
+      reflowTimer.current = window.setTimeout(() => {
+        reflowTimer.current = null;
+        if (hasPhotos) bumpLayout();
+        else router.refresh();
+      }, 250);
     }
   }
 

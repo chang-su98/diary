@@ -102,6 +102,14 @@ export function GalleryGrid({
   initialCursor: number | null;
 }) {
   const [selected, setSelected] = useState<Photo | null>(null);
+  const clearAdded = useGalleryStore((s) => s.clear);
+
+  // 이 인스턴스는 서버 재시드(router.refresh / pull-refresh)로 새 key에 마운트되며,
+  // 이때 initialPhotos엔 업로드분이 이미 포함돼 있다. 낙관적 추가 스토어(added)를 비워
+  // 세션 내내 누적되는 것을 막는다. 서버 목록과 내용이 같아 화면 깜빡임은 없다.
+  useEffect(() => {
+    clearAdded();
+  }, [clearAdded]);
 
   // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
   // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
@@ -164,6 +172,9 @@ function PhotoMasonry({
 
   // 업로드 직후 추가된 사진(스토어). 맨 앞에 합쳐 같은 masonic에서 위치 트랜지션 발생.
   const added = useGalleryStore((s) => s.added);
+  // 슬라이드 애니메이션 후 bumpLayout()으로 증가 → <Masonry> key로 써서 그 자식만
+  // 리마운트(레이아웃 재계산). photos·cursor 상태는 PhotoMasonry에 남아 보존된다.
+  const layoutNonce = useGalleryStore((s) => s.layoutNonce);
   const items = dedupeById([...added, ...photos]);
 
   const loadMore = useCallback(async () => {
@@ -211,6 +222,7 @@ function PhotoMasonry({
 
   return (
     <Masonry
+      key={layoutNonce}
       items={items}
       columnCount={3}
       columnGutter={8}
