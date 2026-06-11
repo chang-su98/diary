@@ -42,15 +42,19 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
     <>
       {/* CSS columns 기반 핀터레스트식 메이슨리 — 세로 간격은 타일 mb로 부여 */}
       <div className="columns-2 gap-2 [&>*]:mb-2">
-        {photos.map((p) => (
+        {photos.map((p, i) => (
           <button
             key={p.id}
             type="button"
             onClick={() => setSelected(p)}
             aria-label="사진 자세히 보기"
-            className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
-            // 원본 비율을 미리 잡아 레이아웃 시프트 방지
-            style={{ aspectRatio: `${p.width} / ${p.height}` }}
+            className="animate-tile-in block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
+            style={{
+              // 원본 비율을 미리 잡아 레이아웃 시프트 방지
+              aspectRatio: `${p.width} / ${p.height}`,
+              // 최초 로드 시 가벼운 스태거(상한). 신규 업로드 타일은 i=0이라 즉시 등장
+              animationDelay: `${Math.min(i, 8) * 35}ms`,
+            }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
             <img
@@ -69,7 +73,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
         createPortal(
           // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
           <div
-            className="fixed inset-0 z-[60] flex flex-col bg-bg"
+            className="animate-modal-fade fixed inset-0 z-[60] flex flex-col bg-bg"
             role="dialog"
             aria-modal="true"
             aria-label="사진 상세"
@@ -129,7 +133,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
               src={selected.data}
               alt=""
               onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full rounded-lg object-contain"
+              className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"
             />
           </div>
           </div>,

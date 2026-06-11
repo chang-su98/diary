@@ -113,6 +113,11 @@
   --animate-page-fade: page-fade 0.3s ease-out both;
   /* 콜드 스타트 스플래시 — 잠시 머문 뒤 페이드아웃 후 숨김 */
   --animate-splash: splash-out 1s ease-in forwards;
+  /* 갤러리 — 새 사진 타일 등장(키 기준 신규 마운트에만 적용됨) */
+  --animate-tile-in: tile-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* 사진 상세 모달 — 배경 페이드 + 사진 팝업 */
+  --animate-modal-fade: modal-fade 0.2s ease-out both;
+  --animate-modal-pop: modal-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes fade-up {
@@ -146,6 +151,37 @@
   100% {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
