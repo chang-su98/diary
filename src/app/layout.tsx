@@ -5,6 +5,7 @@ import { QueryProvider } from "./_components/query-provider";
 import { BottomNav } from "./_components/bottom-nav";
 import { PageTransition } from "./_components/page-transition";
 import { PullToRefresh } from "./_components/pull-to-refresh";
+import { Splash } from "./_components/splash";
 
 export const metadata: Metadata = {
   title: "Record",
@@ -36,6 +37,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
+        <Splash />
         <PWARegister />
         <QueryProvider>
           <PullToRefresh>
