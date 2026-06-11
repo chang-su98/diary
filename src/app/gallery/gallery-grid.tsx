@@ -33,9 +33,9 @@ type Photo = {
   } | null;
 };
 
-// 이미지 서빙 URL — 바이트는 스토리지에서 라우트로 서빙(브라우저 캐시 적용)
-const thumbUrl = (id: number) => `/api/photos/${id}/raw?v=thumb`;
-const fullUrl = (id: number) => `/api/photos/${id}/raw?v=full`;
+// 이미지 서빙 URL — 원본을 라우트로 서빙(브라우저 캐시 적용). 그리드·모달 공용이라
+// 그리드에서 받은 이미지가 캐시되어 모달이 즉시 뜬다.
+const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 
 type PhotosPage = { photos: Photo[]; nextCursor: number | null };
 
@@ -114,7 +114,7 @@ export function GalleryGrid({
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
       <img
-        src={thumbUrl(p.id)}
+        src={rawUrl(p.id)}
         alt=""
         loading="lazy"
         className="size-full object-cover"
@@ -160,9 +160,8 @@ export function GalleryGrid({
 }
 
 /**
- * 사진 상세 라이트박스. 그리드에서 이미 받은 썸네일(캐시)을 즉시 띄우고,
- * 원본 URL을 백그라운드로 프리로드한 뒤 도착하면 교체한다(별도 JSON fetch 없음).
- * 선택 사진 id로 부모가 key를 주어 사진 전환 시 리마운트 → 매번 새 프리로드.
+ * 사진 상세 라이트박스. 그리드와 동일한 원본 URL을 쓰므로 그리드에서 캐시된
+ * 이미지가 즉시 표시된다(별도 프리로드/스왑 불필요).
  */
 function PhotoDetail({
   photo,
@@ -171,19 +170,6 @@ function PhotoDetail({
   photo: Photo;
   onClose: () => void;
 }) {
-  // 썸네일 URL로 시작(그리드에서 캐시됨 → 즉시 표시), 원본 로드되면 교체
-  const [src, setSrc] = useState(() => thumbUrl(photo.id));
-
-  // 원본 프리로드 — setState는 img onload 콜백에서만 호출(set-state-in-effect 룰 무관)
-  useEffect(() => {
-    const img = new Image();
-    img.src = fullUrl(photo.id);
-    img.onload = () => setSrc(fullUrl(photo.id));
-    return () => {
-      img.onload = null;
-    };
-  }, [photo.id]);
-
   return (
     // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
     <div
@@ -240,11 +226,11 @@ function PhotoDetail({
         </button>
       </div>
 
-      {/* 사진 자세히 보기 — 썸네일 즉시 표시 후 원본으로 교체 */}
+      {/* 사진 자세히 보기 — 그리드와 같은 원본(캐시됨) */}
       <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
         <img
-          src={src}
+          src={rawUrl(photo.id)}
           alt=""
           onClick={(e) => e.stopPropagation()}
           className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"

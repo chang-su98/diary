@@ -99,21 +99,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { data, thumb, width, height } = parsed.data;
+    const { data, width, height } = parsed.data;
 
     // base64 → 바이너리로 디코드해 스토리지에 저장하고 DB엔 key만 보관
     const full = dataUrlToBuffer(data);
-    const thumbBuf = dataUrlToBuffer(thumb);
-    if (!full || !thumbBuf) {
+    if (!full) {
       return NextResponse.json(
         { error: "입력값이 올바르지 않습니다." },
         { status: 400 }
       );
     }
 
-    // 스토리지 용량 가드 — R2 무료 한도(10GB) 초과 방지(기본 9GB, 여유 1GB).
+    // 스토리지 용량 가드 — R2 무료 한도(10GB) 초과 방지(기본 9.5GB).
     // 누적 바이트 합 + 이번 업로드가 상한을 넘으면 거절(스토리지·DB 쓰기 전에 중단).
-    const bytes = full.buffer.length + thumbBuf.buffer.length;
+    const bytes = full.buffer.length;
     const used = (await prisma.photo.aggregate({ _sum: { bytes: true } }))._sum
       .bytes ?? 0;
     if (used + bytes > STORAGE_MAX_BYTES) {
@@ -128,14 +127,11 @@ export async function POST(req: NextRequest) {
 
     const uuid = randomUUID();
     const dataKey = `photos/${uuid}/full.${full.ext}`;
-    const thumbKey = `photos/${uuid}/thumb.${thumbBuf.ext}`;
     const storage = getStorage();
     await storage.put(dataKey, full.buffer, full.contentType);
-    await storage.put(thumbKey, thumbBuf.buffer, thumbBuf.contentType);
 
     const photo = await prisma.photo.create({
-      // 올린 사용자를 작성자로 기록 (data/thumb base64는 더 이상 저장하지 않음)
-      data: { dataKey, thumbKey, width, height, bytes, authorId },
+      data: { dataKey, width, height, bytes, authorId }, // 올린 사용자를 작성자로 기록
       select: { id: true },
     });
     return NextResponse.json({ photo }, { status: 201 });

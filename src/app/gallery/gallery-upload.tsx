@@ -3,23 +3,18 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { fileToVariants } from "@/lib/image";
+import { fileToScaledImage } from "@/lib/image";
 
 // 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
 const UPLOAD_CONCURRENCY = 3;
 
 async function uploadOne(file: File): Promise<void> {
-  // 디코드 1회로 원본(1280px)+썸네일(640px)을 함께 생성
-  const { full, thumb } = await fileToVariants(file);
+  // 원본(1280px)만 생성 — 그리드도 원본을 lazy 로딩(별도 썸네일 없음)
+  const { dataUrl, width, height } = await fileToScaledImage(file);
   const res = await fetch("/api/photos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      data: full.dataUrl,
-      thumb: thumb.dataUrl,
-      width: full.width,
-      height: full.height,
-    }),
+    body: JSON.stringify({ data: dataUrl, width, height }),
   });
   if (!res.ok) {
     const body: unknown = await res.json().catch(() => null);
