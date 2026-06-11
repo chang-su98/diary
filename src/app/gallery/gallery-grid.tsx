@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Masonry, type RenderComponentProps } from "masonic";
+
+// masonic은 렌더 단계에서 ResizeObserver(브라우저 전용)를 생성하므로 SSR에서 터진다.
+// 서버/하이드레이션 첫 프레임엔 false, 클라이언트 마운트 후 true → Masonry를 클라이언트에서만 렌더.
+// (useSyncExternalStore라 set-state-in-effect 룰·하이드레이션 불일치 모두 회피)
+const subscribeNoop = () => () => {};
+function useIsClient() {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
+}
 
 type Photo = {
   id: number;
@@ -23,6 +35,7 @@ type Photo = {
  */
 export function GalleryGrid({ photos }: { photos: Photo[] }) {
   const [selected, setSelected] = useState<Photo | null>(null);
+  const isClient = useIsClient();
 
   // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
   // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
@@ -62,14 +75,16 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
 
   return (
     <>
-      <Masonry
-        items={photos}
-        columnCount={2}
-        columnGutter={8}
-        rowGutter={8}
-        itemKey={(p) => p.id}
-        render={renderTile}
-      />
+      {isClient && (
+        <Masonry
+          items={photos}
+          columnCount={2}
+          columnGutter={8}
+          rowGutter={8}
+          itemKey={(p) => p.id}
+          render={renderTile}
+        />
+      )}
 
       {/* 모달은 body로 포털 — PageTransition의 transform 쌓임 맥락을 벗어나
           하단 탭바(z-40) 위로 dim이 올라오도록 한다 */}
