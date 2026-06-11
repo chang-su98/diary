@@ -40,10 +40,9 @@ const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 type PhotosPage = { photos: Photo[]; nextCursor: number | null };
 
 /**
- * 갤러리 메이슨리 + 사진 상세 라이트박스 + 무한 스크롤.
- * 레이아웃은 masonic으로 높이 균형 패킹 + 가상화 처리(즉시 배치, 위치 애니메이션 없음).
- * 첫 페이지는 서버(initialPhotos)에서 받고, 스크롤이 끝에 가까워지면 다음 페이지를 추가 로드한다.
- * 첫 페이지가 바뀌면 부모가 key로 리마운트하므로 prop→state 동기화 effect는 두지 않는다.
+ * 갤러리 = 메이슨리 그리드(+무한 스크롤) + 상세 라이트박스.
+ * 모달 상태(selected)는 GalleryGrid가, 그리드는 PhotoMasonry가 따로 들고 있어
+ * 모달을 열고 닫아도 그리드가 리렌더되지 않는다(깜빡임 방지).
  */
 export function GalleryGrid({
   initialPhotos,
@@ -53,6 +52,59 @@ export function GalleryGrid({
   initialCursor: number | null;
 }) {
   const [selected, setSelected] = useState<Photo | null>(null);
+
+  // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
+  // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
+  useEffect(() => {
+    if (!selected) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [selected]);
+
+  return (
+    <>
+      {/* onSelect는 안정적(setSelected) → selected가 바뀌어도 그리드는 리렌더 안 됨 */}
+      <PhotoMasonry
+        initialPhotos={initialPhotos}
+        initialCursor={initialCursor}
+        onSelect={setSelected}
+      />
+
+      {/* 상세 모달은 body로 포털 + 선택 사진 id로 key */}
+      {selected &&
+        createPortal(
+          <PhotoDetail
+            key={selected.id}
+            photo={selected}
+            onClose={() => setSelected(null)}
+          />,
+          document.body
+        )}
+    </>
+  );
+}
+
+/**
+ * 메이슨리 그리드 + 무한 스크롤. 모달 상태와 분리되어 있어 모달 토글에 영향받지 않는다.
+ * 첫 페이지는 서버(initialPhotos)에서 받고, 스크롤이 끝에 가까워지면 다음 페이지를 추가 로드한다.
+ */
+function PhotoMasonry({
+  initialPhotos,
+  initialCursor,
+  onSelect,
+}: {
+  initialPhotos: Photo[];
+  initialCursor: number | null;
+  onSelect: (photo: Photo) => void;
+}) {
   const isClient = useIsClient();
 
   // 누적 목록 + 다음 커서. initialPhotos는 시드값으로만 사용(이후 추가는 클라이언트 fetch).
@@ -84,29 +136,13 @@ export function GalleryGrid({
     [loadMore]
   );
 
-  // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
-  // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
-  useEffect(() => {
-    if (!selected) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [selected]);
-
   // 타일 마크업 — masonic 셀과 SSR 폴백(CSS columns)이 공유.
   // break-inside-avoid는 폴백에서만 의미 있고 masonic(절대 배치)에선 무해.
   const renderButton = (p: Photo) => (
     <button
       key={p.id}
       type="button"
-      onClick={() => setSelected(p)}
+      onClick={() => onSelect(p)}
       aria-label="사진 자세히 보기"
       className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
       // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
@@ -122,40 +158,28 @@ export function GalleryGrid({
     </button>
   );
 
-  // masonic 셀 렌더 — data는 photos 항목
   const renderTile = ({ data }: RenderComponentProps<Photo>) =>
     renderButton(data);
 
-  return (
-    <>
-      {isClient ? (
-        <Masonry
-          items={photos}
-          columnCount={2}
-          columnGutter={8}
-          rowGutter={8}
-          itemKey={(p) => p.id}
-          render={renderTile}
-          onRender={onRender}
-        />
-      ) : (
-        // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
-        <div className="columns-2 gap-2 [&>*]:mb-2">
-          {photos.map(renderButton)}
-        </div>
-      )}
+  if (!isClient) {
+    // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
+    return (
+      <div className="columns-2 gap-2 [&>*]:mb-2">
+        {photos.map(renderButton)}
+      </div>
+    );
+  }
 
-      {/* 상세 모달은 body로 포털 + 선택된 사진 id로 key → 사진 전환 시 리마운트(원본 재fetch) */}
-      {selected &&
-        createPortal(
-          <PhotoDetail
-            key={selected.id}
-            photo={selected}
-            onClose={() => setSelected(null)}
-          />,
-          document.body
-        )}
-    </>
+  return (
+    <Masonry
+      items={photos}
+      columnCount={2}
+      columnGutter={8}
+      rowGutter={8}
+      itemKey={(p) => p.id}
+      render={renderTile}
+      onRender={onRender}
+    />
   );
 }
 
