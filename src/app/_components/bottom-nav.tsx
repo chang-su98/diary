@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStandalone } from "@/lib/use-standalone";
+import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
 
 // 차근차근 추가 예정 — 현재 4개 탭 (public/asset/images/tabbar 기준)
 const ITEMS = [
@@ -19,8 +20,16 @@ function isActive(pathname: string, href: string) {
 export function BottomNav() {
   const pathname = usePathname();
   const standalone = useStandalone();
+  const selecting = useGallerySelectionStore((s) => s.selecting);
+  const count = useGallerySelectionStore((s) => s.selectedIds.size);
+  const exitSelection = useGallerySelectionStore((s) => s.exit);
+  const openConfirm = useGallerySelectionStore((s) => s.openConfirm);
+
   // 로그인 화면에서는 숨김
   if (pathname === "/login") return null;
+
+  // 갤러리에서 선택 모드일 때만 취소/삭제 버튼으로 교체
+  const selectionMode = selecting && pathname.startsWith("/gallery");
 
   return (
     <nav
@@ -31,46 +40,66 @@ export function BottomNav() {
           : "bg-surface"
       }`}
     >
-      <ul className="mx-auto flex max-w-md items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
-        {ITEMS.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <li key={item.href} className="flex-1">
-              <Link
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className="flex flex-col items-center justify-center gap-1 py-2"
-              >
-                {/* SVG를 mask로 사용 → 테마 색(currentColor 대신 bg)으로 채색 */}
-                <span
-                  aria-hidden
-                  className={`size-6 transition-colors duration-200 ${
-                    active ? "bg-primary" : "bg-text-muted"
-                  }`}
-                  style={{
-                    maskImage: `url(${item.icon})`,
-                    WebkitMaskImage: `url(${item.icon})`,
-                    maskRepeat: "no-repeat",
-                    WebkitMaskRepeat: "no-repeat",
-                    maskPosition: "center",
-                    WebkitMaskPosition: "center",
-                    maskSize: "contain",
-                    WebkitMaskSize: "contain",
-                  }}
-                />
-                {/* 아이콘 아래 라벨 — 활성 탭은 강조색 */}
-                <span
-                  className={`text-[0.6875rem] leading-none transition-colors duration-200 ${
-                    active ? "font-medium text-primary" : "text-text-muted"
-                  }`}
+      {selectionMode ? (
+        <div className="mx-auto flex max-w-md items-stretch pb-[env(safe-area-inset-bottom)]">
+          <button
+            type="button"
+            onClick={exitSelection}
+            className="flex-1 py-3 text-sm font-medium text-text-muted transition-opacity hover:opacity-60"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={openConfirm}
+            disabled={count === 0}
+            className="flex-1 py-3 text-sm font-semibold text-error transition-opacity hover:opacity-60 disabled:opacity-40"
+          >
+            삭제{count > 0 ? ` (${count})` : ""}
+          </button>
+        </div>
+      ) : (
+        <ul className="mx-auto flex max-w-md items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
+          {ITEMS.map((item) => {
+            const active = isActive(pathname, item.href);
+            return (
+              <li key={item.href} className="flex-1">
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className="flex flex-col items-center justify-center gap-1 py-2"
                 >
-                  {item.label}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                  {/* SVG를 mask로 사용 → 테마 색(currentColor 대신 bg)으로 채색 */}
+                  <span
+                    aria-hidden
+                    className={`size-6 transition-colors duration-200 ${
+                      active ? "bg-primary" : "bg-text-muted"
+                    }`}
+                    style={{
+                      maskImage: `url(${item.icon})`,
+                      WebkitMaskImage: `url(${item.icon})`,
+                      maskRepeat: "no-repeat",
+                      WebkitMaskRepeat: "no-repeat",
+                      maskPosition: "center",
+                      WebkitMaskPosition: "center",
+                      maskSize: "contain",
+                      WebkitMaskSize: "contain",
+                    }}
+                  />
+                  {/* 아이콘 아래 라벨 — 활성 탭은 강조색 */}
+                  <span
+                    className={`text-[0.6875rem] leading-none transition-colors duration-200 ${
+                      active ? "font-medium text-primary" : "text-text-muted"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </nav>
   );
 }
