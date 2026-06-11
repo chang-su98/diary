@@ -59,6 +59,11 @@ export function GalleryUpload({
   const selecting = useGallerySelectionStore((s) => s.selecting);
   const enterSelection = useGallerySelectionStore((s) => s.enter);
   const selectAll = useGallerySelectionStore((s) => s.selectAll);
+  const deselectAll = useGallerySelectionStore((s) => s.deselectAll);
+  // 보이는 사진이 모두 선택됐는지(파생 불리언) → 전체선택/선택 해제 토글
+  const allSelected = useGallerySelectionStore(
+    (s) => s.allIds.length > 0 && s.allIds.every((id) => s.selectedIds.has(id))
+  );
   const [menuOpen, setMenuOpen] = useState(false);
 
   // 언마운트 시 대기 중인 보정 타이머 정리(언마운트 후 발화 방지)
@@ -142,10 +147,10 @@ export function GalleryUpload({
       {selecting ? (
         <button
           type="button"
-          onClick={selectAll}
+          onClick={allSelected ? deselectAll : selectAll}
           className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 text-sm font-medium text-text transition-opacity hover:opacity-60"
         >
-          전체선택
+          {allSelected ? "선택 해제" : "전체선택"}
         </button>
       ) : (
         <button

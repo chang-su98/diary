@@ -11,6 +11,7 @@ interface GallerySelectionState {
   toggle: (id: number) => void;
   setAllIds: (ids: number[]) => void;
   selectAll: () => void;
+  deselectAll: () => void;
   openConfirm: () => void;
   closeConfirm: () => void;
 }
@@ -36,6 +37,8 @@ export const useGallerySelectionStore = create<GallerySelectionState>((set) => (
   setAllIds: (ids) => set({ allIds: ids }),
   // 현재 보이는 사진 전부 선택
   selectAll: () => set((state) => ({ selectedIds: new Set(state.allIds) })),
+  // 선택만 해제(선택 모드는 유지) — exit과 달리 selecting을 끄지 않는다
+  deselectAll: () => set({ selectedIds: new Set() }),
   // 선택이 하나도 없으면 다이얼로그를 열지 않는다
   openConfirm: () =>
     set((state) => (state.selectedIds.size > 0 ? { confirmOpen: true } : state)),
