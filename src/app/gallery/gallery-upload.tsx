@@ -102,12 +102,13 @@ export function GalleryUpload() {
       {busy &&
         createPortal(
           <div
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-bg"
+            className="fixed inset-0 z-[70] flex items-center justify-center"
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
             role="status"
             aria-live="polite"
             aria-label="업로드 중"
           >
-            <span className="size-10 animate-spin rounded-full border-[3px] border-line border-t-primary" />
+            <span className="size-10 animate-spin rounded-full border-[3px] border-white/25 border-t-white" />
           </div>,
           document.body
         )}
