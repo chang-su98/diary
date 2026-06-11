@@ -7,7 +7,11 @@
     "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/engines", "esbuild", "prisma"]
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1066.0",
