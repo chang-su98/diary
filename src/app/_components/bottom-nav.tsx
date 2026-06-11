@@ -41,11 +41,12 @@ export function BottomNav() {
       }`}
     >
       {selectionMode ? (
-        <div className="mx-auto flex max-w-md items-stretch pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto flex max-w-md animate-page-fade items-stretch pb-[env(safe-area-inset-bottom)]">
           <button
             type="button"
             onClick={exitSelection}
-            className="flex-1 py-3 text-sm font-medium text-text-muted transition-opacity hover:opacity-60"
+            // 기본 탭(py-2 + 아이콘 1.5rem + gap 0.25rem + 라벨 0.6875rem = 3.4375rem)과 높이 일치
+            className="flex h-[3.4375rem] flex-1 items-center justify-center text-sm font-medium text-text-muted transition-opacity hover:opacity-60"
           >
             취소
           </button>
@@ -53,7 +54,7 @@ export function BottomNav() {
             type="button"
             onClick={openConfirm}
             disabled={count === 0}
-            className="flex-1 py-3 text-sm font-semibold text-error transition-opacity hover:opacity-60 disabled:opacity-40"
+            className="flex h-[3.4375rem] flex-1 items-center justify-center text-sm font-semibold text-error transition-opacity hover:opacity-60 disabled:opacity-40"
           >
             삭제{count > 0 ? ` (${count})` : ""}
           </button>
