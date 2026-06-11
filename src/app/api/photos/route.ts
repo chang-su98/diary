@@ -10,6 +10,11 @@ import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 // 갤러리 한 페이지 크기 — 페이지·API 공통
 export const PHOTO_PAGE_SIZE = 10;
 
+// 스토리지 용량 상한(바이트). R2 무료 10GB 대비 여유(기본 9GB). env로 조정 가능.
+const STORAGE_MAX_BYTES = Number(
+  process.env.STORAGE_MAX_BYTES ?? 9_000_000_000
+);
+
 // 그리드용 — 이미지 바이트는 스토리지에 있으므로 메타만 반환(클라이언트가 /raw URL 구성).
 // author는 등록자 표시용(삭제 시 null).
 const photoSelect = {
@@ -105,6 +110,22 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 스토리지 용량 가드 — R2 무료 한도(10GB) 초과 방지(기본 9GB, 여유 1GB).
+    // 누적 바이트 합 + 이번 업로드가 상한을 넘으면 거절(스토리지·DB 쓰기 전에 중단).
+    const bytes = full.buffer.length + thumbBuf.buffer.length;
+    const used = (await prisma.photo.aggregate({ _sum: { bytes: true } }))._sum
+      .bytes ?? 0;
+    if (used + bytes > STORAGE_MAX_BYTES) {
+      console.warn(
+        `[POST /api/photos] 스토리지 한도 초과: used=${used} + ${bytes} > ${STORAGE_MAX_BYTES}`
+      );
+      return NextResponse.json(
+        { error: "저장 공간이 가득 찼어요. 무료 용량 한도에 도달했습니다." },
+        { status: 507 }
+      );
+    }
+
     const uuid = randomUUID();
     const dataKey = `photos/${uuid}/full.${full.ext}`;
     const thumbKey = `photos/${uuid}/thumb.${thumbBuf.ext}`;
@@ -114,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     const photo = await prisma.photo.create({
       // 올린 사용자를 작성자로 기록 (data/thumb base64는 더 이상 저장하지 않음)
-      data: { dataKey, thumbKey, width, height, authorId },
+      data: { dataKey, thumbKey, width, height, bytes, authorId },
       select: { id: true },
     });
     return NextResponse.json({ photo }, { status: 201 });
