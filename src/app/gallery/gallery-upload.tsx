@@ -57,11 +57,23 @@ export function GalleryUpload() {
         onClick={() => fileRef.current?.click()}
         disabled={busy}
         aria-label="사진 추가"
-        className="absolute right-4 top-[calc(2rem+env(safe-area-inset-top))] flex size-9 items-center justify-center rounded-full bg-primary text-white transition-all duration-200 hover:bg-primary-strong active:scale-95 disabled:opacity-50"
+        className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
       >
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden width={18} height={18} className="size-[18px]">
-          <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
-        </svg>
+        {/* plus.svg를 mask로 사용 → 테마색(bg-text)으로 채색 (profile 헤더와 동일 패턴) */}
+        <span
+          aria-hidden
+          className="block size-6 bg-text"
+          style={{
+            maskImage: "url(/asset/images/contents/plus.svg)",
+            WebkitMaskImage: "url(/asset/images/contents/plus.svg)",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskPosition: "center",
+            maskSize: "contain",
+            WebkitMaskSize: "contain",
+          }}
+        />
       </button>
 
       <input
@@ -74,7 +86,10 @@ export function GalleryUpload() {
       />
 
       {msg && (
-        <p className="mt-2 text-center text-sm text-error" role="alert">
+        <p
+          role="alert"
+          className="fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
+        >
           {msg}
         </p>
       )}

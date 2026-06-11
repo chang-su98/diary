@@ -16,7 +16,7 @@ export default async function GalleryPage() {
     <main className="relative mx-auto w-full max-w-md px-4 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <GalleryUpload />
 
-      <h1 className="mb-8 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
+      <h1 className="mb-10 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
         GALLERY
       </h1>
 
