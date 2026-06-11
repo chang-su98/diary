@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Photo = {
   id: number;
@@ -62,15 +63,18 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
         ))}
       </div>
 
-      {selected && (
-        // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
-        <div
-          className="fixed inset-0 z-[60] flex flex-col bg-black/85"
-          role="dialog"
-          aria-modal="true"
-          aria-label="사진 상세"
-          onClick={() => setSelected(null)}
-        >
+      {/* 모달은 body로 포털 — PageTransition의 transform 쌓임 맥락을 벗어나
+          하단 탭바(z-40) 위로 dim이 올라오도록 한다 */}
+      {selected &&
+        createPortal(
+          // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
+          <div
+            className="fixed inset-0 z-[60] flex flex-col bg-black/85"
+            role="dialog"
+            aria-modal="true"
+            aria-label="사진 상세"
+            onClick={() => setSelected(null)}
+          >
           {/* 상단: 등록자 아이디 + 프로필 사진 */}
           <div
             className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]"
@@ -128,8 +132,9 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
               className="max-h-full max-w-full rounded-lg object-contain"
             />
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }

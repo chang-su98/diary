@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
 
@@ -85,26 +86,32 @@ export function GalleryUpload() {
         className="hidden"
       />
 
-      {msg && (
-        <p
-          role="alert"
-          className="fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
-        >
-          {msg}
-        </p>
-      )}
+      {/* 오버레이는 body로 포털 — PageTransition의 transform 쌓임 맥락을 벗어나
+          하단 탭바(z-40) 위까지 덮도록 한다 */}
+      {msg &&
+        createPortal(
+          <p
+            role="alert"
+            className="fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
+          >
+            {msg}
+          </p>,
+          document.body
+        )}
 
-      {busy && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          role="status"
-          aria-live="polite"
-          aria-label="업로드 중"
-        >
-          <span className="size-10 animate-spin rounded-full border-[3px] border-white/25 border-t-white" />
-        </div>
-      )}
+      {busy &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center"
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            role="status"
+            aria-live="polite"
+            aria-label="업로드 중"
+          >
+            <span className="size-10 animate-spin rounded-full border-[3px] border-white/25 border-t-white" />
+          </div>,
+          document.body
+        )}
     </>
   );
 }
