@@ -213,14 +213,10 @@ function PhotoMasonry({
 
   // 업로드 직후 추가된 사진(스토어). 맨 앞에 합쳐 같은 masonic에서 위치 트랜지션 발생.
   const added = useGalleryStore((s) => s.added);
-  // 낙관적으로 삭제한 사진 id. 같은 masonic에서 즉시 빼 남은 타일이 슬라이드 재정렬된다.
-  const removedIds = useGalleryStore((s) => s.removedIds);
   // 슬라이드 애니메이션 후 bumpLayout()으로 증가 → <Masonry> key로 써서 그 자식만
   // 리마운트(레이아웃 재계산). photos·cursor 상태는 PhotoMasonry에 남아 보존된다.
   const layoutNonce = useGalleryStore((s) => s.layoutNonce);
-  const items = dedupeById([...added, ...photos]).filter(
-    (p) => !removedIds.has(p.id)
-  );
+  const items = dedupeById([...added, ...photos]);
 
   // 전체선택(+ 위치 버튼)의 소스 — 현재 보이는 id 목록을 선택 스토어에 동기화
   const setAllIds = useGallerySelectionStore((s) => s.setAllIds);

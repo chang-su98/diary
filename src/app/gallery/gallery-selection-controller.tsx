@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
-import { useGalleryStore } from "@/lib/gallery-store";
 
 // 삭제 확인 다이얼로그 + 실제 삭제 실행. 갤러리 페이지에만 마운트되어,
 // 페이지를 벗어나면(언마운트) 선택 모드를 자동 종료한다.
@@ -14,16 +13,12 @@ export function GallerySelectionController() {
   const selectedIds = useGallerySelectionStore((s) => s.selectedIds);
   const closeConfirm = useGallerySelectionStore((s) => s.closeConfirm);
   const exit = useGallerySelectionStore((s) => s.exit);
-  const removeMany = useGalleryStore((s) => s.removeMany);
-  const refreshTimer = useRef<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 갤러리 이탈 시: 대기 중인 재시드 타이머 정리 + 선택 모드 종료
+  // 갤러리 이탈 시 선택 모드 종료
   useEffect(() => {
     return () => {
-      if (refreshTimer.current !== null)
-        window.clearTimeout(refreshTimer.current);
       useGallerySelectionStore.getState().exit();
     };
   }, []);
@@ -52,11 +47,10 @@ export function GallerySelectionController() {
             : "삭제에 실패했습니다.";
         throw new Error(msg);
       }
-      // 낙관적 제거 → 같은 masonic에서 남은 타일이 슬라이드 재정렬된다.
-      removeMany(ids);
+      // 선택 모드 종료 후 서버 데이터로 재시드 → 삭제된 사진 제거 + 빈 갤러리 전환.
+      // (masonic은 항목 in-place 제거를 지원하지 않아 리마운트 방식으로 정리한다.)
       exit();
-      // 슬라이드(~0.4s)가 재생된 뒤 서버 데이터로 재시드(빈 갤러리 전환·정합).
-      refreshTimer.current = window.setTimeout(() => router.refresh(), 450);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
     } finally {
