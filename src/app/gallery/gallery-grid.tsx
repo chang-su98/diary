@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { Masonry, type RenderComponentProps } from "masonic";
 
@@ -28,14 +34,52 @@ type Photo = {
   } | null;
 };
 
+type PhotosPage = { photos: Photo[]; nextCursor: number | null };
+
 /**
- * 갤러리 메이슨리 + 사진 상세 라이트박스.
+ * 갤러리 메이슨리 + 사진 상세 라이트박스 + 무한 스크롤.
  * 레이아웃은 masonic으로 높이 균형 패킹 + 가상화 처리(즉시 배치, 위치 애니메이션 없음).
- * 타일을 누르면 등록자(아이디·프로필)와 큰 사진을 오버레이로 보여준다.
+ * 첫 페이지는 서버(initialPhotos)에서 받고, 스크롤이 끝에 가까워지면 다음 페이지를 추가 로드한다.
+ * 첫 페이지가 바뀌면 부모가 key로 리마운트하므로 prop→state 동기화 effect는 두지 않는다.
  */
-export function GalleryGrid({ photos }: { photos: Photo[] }) {
+export function GalleryGrid({
+  initialPhotos,
+  initialCursor,
+}: {
+  initialPhotos: Photo[];
+  initialCursor: number | null;
+}) {
   const [selected, setSelected] = useState<Photo | null>(null);
   const isClient = useIsClient();
+
+  // 누적 목록 + 다음 커서. initialPhotos는 시드값으로만 사용(이후 추가는 클라이언트 fetch).
+  const [photos, setPhotos] = useState(initialPhotos);
+  const [cursor, setCursor] = useState(initialCursor);
+  const loadingRef = useRef(false); // 동시 fetch 방지
+
+  const loadMore = useCallback(async () => {
+    if (loadingRef.current || cursor === null) return;
+    loadingRef.current = true;
+    try {
+      const res = await fetch(`/api/photos?cursor=${cursor}`);
+      if (!res.ok) return;
+      const page = (await res.json()) as PhotosPage;
+      setPhotos((prev) => [...prev, ...page.photos]);
+      setCursor(page.nextCursor);
+    } catch (error) {
+      console.warn("[gallery] 다음 페이지 로드 실패:", error);
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [cursor]);
+
+  // masonic이 끝에서 4칸 이내를 렌더하면 다음 페이지 로드(뷰포트 미충족 시 자동 연속 로드)
+  const onRender = useCallback(
+    (_start: number, stop: number, items: Photo[]) => {
+      if (stop >= items.length - 4) void loadMore();
+    },
+    [loadMore]
+  );
 
   // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
   // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
@@ -89,6 +133,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
           rowGutter={8}
           itemKey={(p) => p.id}
           render={renderTile}
+          onRender={onRender}
         />
       ) : (
         // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)

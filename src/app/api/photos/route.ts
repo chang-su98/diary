@@ -1,21 +1,58 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
 import { photoCreateSchema } from "@/lib/schemas/photo";
 
-// 사진 목록 조회 — 최신순
-export async function GET() {
+// 갤러리 한 페이지 크기 — 페이지·API 공통
+export const PHOTO_PAGE_SIZE = 20;
+
+// 상세 모달 등록자 표시용 — author는 삭제 시 null
+const photoSelect = {
+  id: true,
+  data: true,
+  width: true,
+  height: true,
+  author: { select: { username: true, displayName: true, avatar: true } },
+} as const;
+
+// 커서 기반 페이지네이션 — id desc(=최신순, autoincrement)로 cursor 미만을 take
+const photosQuerySchema = z.object({
+  cursor: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(PHOTO_PAGE_SIZE),
+});
+
+// 사진 목록 조회 — 최신순, 커서 페이지네이션
+export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
-    const photos = await prisma.photo.findMany({
-      orderBy: { createdAt: "desc" },
-      select: { id: true, data: true, width: true, height: true, createdAt: true },
+
+    const { searchParams } = new URL(req.url);
+    const parsed = photosQuerySchema.safeParse({
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
     });
-    return NextResponse.json({ photos });
+    if (!parsed.success) {
+      console.warn("[GET /api/photos] 쿼리 검증 실패:", parsed.error.issues);
+      return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
+    }
+    const { cursor, limit } = parsed.data;
+
+    const photos = await prisma.photo.findMany({
+      where: cursor ? { id: { lt: cursor } } : undefined,
+      orderBy: { id: "desc" },
+      take: limit,
+      select: photoSelect,
+    });
+    // 정확히 limit개면 다음 페이지가 있을 수 있음 → 마지막 id를 커서로
+    const nextCursor =
+      photos.length === limit ? photos[photos.length - 1].id : null;
+
+    return NextResponse.json({ photos, nextCursor });
   } catch (error) {
     console.error("[GET /api/photos]", error);
     return NextResponse.json({ error: "서버 오류가 발생했습니다." }, { status: 500 });
