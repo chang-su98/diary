@@ -5,9 +5,12 @@ interface GallerySelectionState {
   selecting: boolean; // 선택 모드 on/off
   selectedIds: Set<number>; // 선택된 사진 id
   confirmOpen: boolean; // 삭제 확인 다이얼로그 표시 여부
+  allIds: number[]; // 현재 그리드에 보이는 전체 사진 id(전체선택용) — 그리드가 동기화
   enter: () => void;
   exit: () => void;
   toggle: (id: number) => void;
+  setAllIds: (ids: number[]) => void;
+  selectAll: () => void;
   openConfirm: () => void;
   closeConfirm: () => void;
 }
@@ -16,6 +19,7 @@ export const useGallerySelectionStore = create<GallerySelectionState>((set) => (
   selecting: false,
   selectedIds: new Set(),
   confirmOpen: false,
+  allIds: [],
   enter: () =>
     set({ selecting: true, selectedIds: new Set(), confirmOpen: false }),
   exit: () =>
@@ -28,6 +32,10 @@ export const useGallerySelectionStore = create<GallerySelectionState>((set) => (
       else next.add(id);
       return { selectedIds: next };
     }),
+  // 그리드가 현재 보이는 id 목록을 동기화(전체선택의 소스)
+  setAllIds: (ids) => set({ allIds: ids }),
+  // 현재 보이는 사진 전부 선택
+  selectAll: () => set((state) => ({ selectedIds: new Set(state.allIds) })),
   // 선택이 하나도 없으면 다이얼로그를 열지 않는다
   openConfirm: () =>
     set((state) => (state.selectedIds.size > 0 ? { confirmOpen: true } : state)),

@@ -222,6 +222,12 @@ function PhotoMasonry({
     (p) => !removedIds.has(p.id)
   );
 
+  // 전체선택(+ 위치 버튼)의 소스 — 현재 보이는 id 목록을 선택 스토어에 동기화
+  const setAllIds = useGallerySelectionStore((s) => s.setAllIds);
+  useEffect(() => {
+    setAllIds(items.map((p) => p.id));
+  }, [items, setAllIds]);
+
   const loadMore = useCallback(async () => {
     if (loadingRef.current || cursor === null) return;
     loadingRef.current = true;

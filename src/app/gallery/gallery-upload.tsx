@@ -58,7 +58,7 @@ export function GalleryUpload({
   const bumpLayout = useGalleryStore((s) => s.bumpLayout);
   const selecting = useGallerySelectionStore((s) => s.selecting);
   const enterSelection = useGallerySelectionStore((s) => s.enter);
-  const exitSelection = useGallerySelectionStore((s) => s.exit);
+  const selectAll = useGallerySelectionStore((s) => s.selectAll);
   const [menuOpen, setMenuOpen] = useState(false);
 
   // 언마운트 시 대기 중인 보정 타이머 정리(언마운트 후 발화 방지)
@@ -142,10 +142,10 @@ export function GalleryUpload({
       {selecting ? (
         <button
           type="button"
-          onClick={exitSelection}
+          onClick={selectAll}
           className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 text-sm font-medium text-text transition-opacity hover:opacity-60"
         >
-          취소
+          전체선택
         </button>
       ) : (
         <button
@@ -207,7 +207,7 @@ export function GalleryUpload({
                   setMenuOpen(false);
                   enterSelection();
                 }}
-                className="flex w-full items-center border-t border-line px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
+                className="flex w-full items-center border-t border-line px-4 py-3 text-sm text-error transition-colors hover:bg-line/40"
               >
                 사진 삭제
               </button>
