@@ -56,3 +56,48 @@ export async function fileToScaledImage(
     bitmap.close();
   }
 }
+
+// 비트맵을 maxEdge 이하로 축소해 data URL + 표시 크기 반환 (고품질 다운스케일).
+function scaleBitmapToDataURL(
+  bitmap: ImageBitmap,
+  maxEdge: number,
+  quality: number,
+  outType: string
+): { dataUrl: string; width: number; height: number } {
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d context를 사용할 수 없습니다.");
+  // 다운스케일 시 계단현상/깨짐 완화
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  return { dataUrl: canvas.toDataURL(outType, quality), width, height };
+}
+
+// 한 번의 디코드로 원본(상세용)+썸네일(그리드용)을 함께 생성한다 (업로드 속도·품질 개선).
+// 썸네일은 고DPR 화면에서도 또렷하도록 넉넉히(기본 640px) 잡는다.
+export async function fileToVariants(
+  file: File,
+  fullEdge = 1280,
+  thumbEdge = 640,
+  quality = 0.82
+): Promise<{
+  full: { dataUrl: string; width: number; height: number };
+  thumb: { dataUrl: string };
+}> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const outType = OUTPUT_TYPES.includes(file.type) ? file.type : "image/jpeg";
+    const full = scaleBitmapToDataURL(bitmap, fullEdge, quality, outType);
+    const thumb = scaleBitmapToDataURL(bitmap, thumbEdge, quality, outType);
+    return { full, thumb: { dataUrl: thumb.dataUrl } };
+  } finally {
+    bitmap.close();
+  }
+}

@@ -2,8 +2,8 @@ import { z } from "zod";
 
 // 리사이즈된 사진 data URL 길이 상한(약 2MB 이미지 수준). MediumText(16MB) 내 안전 여유.
 export const MAX_PHOTO_CHARS = 3_000_000;
-// 썸네일(≈400px) data URL 길이 상한 — 원본보다 작음.
-export const MAX_THUMB_CHARS = 800_000;
+// 썸네일(≈640px) data URL 길이 상한 — 원본보다 작지만 PNG 등은 커질 수 있어 여유.
+export const MAX_THUMB_CHARS = 1_500_000;
 
 // 클라이언트(lib/image.ts)는 jpeg/png/webp data URL을 생성한다.
 // 래스터 포맷만 허용 — svg 등 스크립트 실행 가능 포맷 차단.

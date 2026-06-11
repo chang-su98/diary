@@ -3,7 +3,36 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { fileToScaledImage } from "@/lib/image";
+import { fileToVariants } from "@/lib/image";
+
+// 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
+const UPLOAD_CONCURRENCY = 3;
+
+async function uploadOne(file: File): Promise<void> {
+  // 디코드 1회로 원본(1280px)+썸네일(640px)을 함께 생성
+  const { full, thumb } = await fileToVariants(file);
+  const res = await fetch("/api/photos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      data: full.dataUrl,
+      thumb: thumb.dataUrl,
+      width: full.width,
+      height: full.height,
+    }),
+  });
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    const serverMsg =
+      body !== null &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof body.error === "string"
+        ? body.error
+        : "업로드에 실패했습니다.";
+    throw new Error(serverMsg);
+  }
+}
 
 export function GalleryUpload() {
   const router = useRouter();
@@ -19,35 +48,33 @@ export function GalleryUpload() {
     setBusy(true);
     setMsg(null);
     let uploaded = 0;
-    try {
-      // 큰 payload 병렬 전송을 피해 순차 업로드
-      for (const file of files) {
-        // 원본(상세용 1280px) + 썸네일(그리드용 ≈400px)을 함께 생성
-        const { dataUrl, width, height } = await fileToScaledImage(file);
-        const { dataUrl: thumb } = await fileToScaledImage(file, 400, 0.7);
-        const res = await fetch("/api/photos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: dataUrl, thumb, width, height }),
-        });
-        if (!res.ok) {
-          const body: unknown = await res.json().catch(() => null);
-          const serverMsg =
-            body !== null &&
-            typeof body === "object" &&
-            "error" in body &&
-            typeof body.error === "string"
-              ? body.error
-              : "업로드에 실패했습니다.";
-          throw new Error(serverMsg);
+    let firstError: string | null = null;
+    let next = 0;
+
+    // 동시성 제한 워커 풀 — 큐에서 하나씩 꺼내 병렬 업로드
+    async function worker() {
+      while (next < files.length) {
+        const file = files[next++];
+        try {
+          await uploadOne(file);
+          uploaded += 1;
+        } catch (error) {
+          if (!firstError) {
+            firstError =
+              error instanceof Error ? error.message : "업로드에 실패했습니다.";
+          }
         }
-        uploaded += 1;
       }
-      router.refresh();
-    } catch (error) {
-      // 일부만 올라간 경우에도 화면 갱신
+    }
+
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, files.length) }, () =>
+          worker()
+        )
+      );
       if (uploaded > 0) router.refresh();
-      setMsg(error instanceof Error ? error.message : "업로드에 실패했습니다.");
+      if (firstError) setMsg(firstError);
     } finally {
       setBusy(false);
     }
