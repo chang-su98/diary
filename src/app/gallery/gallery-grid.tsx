@@ -9,6 +9,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Masonry, type RenderComponentProps } from "masonic";
+import { useGalleryStore } from "@/lib/gallery-store";
+import type { GalleryPhoto as Photo } from "./types";
 
 // masonic은 렌더 단계에서 ResizeObserver(브라우저 전용)를 생성하므로 SSR에서 터진다.
 // 서버/하이드레이션 첫 프레임엔 false, 클라이언트 마운트 후 true → Masonry를 클라이언트에서만 렌더.
@@ -22,20 +24,28 @@ function useIsClient() {
   );
 }
 
-type Photo = {
-  id: number;
-  width: number;
-  height: number;
-  author: {
-    username: string;
-    displayName: string | null;
-    avatar: string | null;
-  } | null;
-};
-
 // 이미지 서빙 URL — 원본을 라우트로 서빙(브라우저 캐시 적용). 그리드·모달 공용이라
 // 그리드에서 받은 이미지가 캐시되어 모달이 즉시 뜬다.
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
+
+// 셀 위치(top/left) 변화에 트랜지션 → 사진 추가 시 기존 사진들이 부드럽게 밀려난다.
+const ITEM_STYLE = {
+  transition:
+    "top 0.4s cubic-bezier(0.22, 1, 0.36, 1), left 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
+};
+
+// id 기준 중복 제거(앞선 항목 우선) — 스토어 added와 서버 photos가 겹칠 때 대비
+function dedupeById(list: Photo[]): Photo[] {
+  const seen = new Set<number>();
+  const out: Photo[] = [];
+  for (const p of list) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      out.push(p);
+    }
+  }
+  return out;
+}
 
 type PhotosPage = { photos: Photo[]; nextCursor: number | null };
 
@@ -112,6 +122,10 @@ function PhotoMasonry({
   const [cursor, setCursor] = useState(initialCursor);
   const loadingRef = useRef(false); // 동시 fetch 방지
 
+  // 업로드 직후 추가된 사진(스토어). 맨 앞에 합쳐 같은 masonic에서 위치 트랜지션 발생.
+  const added = useGalleryStore((s) => s.added);
+  const items = dedupeById([...added, ...photos]);
+
   const loadMore = useCallback(async () => {
     if (loadingRef.current || cursor === null) return;
     loadingRef.current = true;
@@ -130,8 +144,8 @@ function PhotoMasonry({
 
   // masonic이 끝에서 4칸 이내를 렌더하면 다음 페이지 로드(뷰포트 미충족 시 자동 연속 로드)
   const onRender = useCallback(
-    (_start: number, stop: number, items: Photo[]) => {
-      if (stop >= items.length - 4) void loadMore();
+    (_start: number, stop: number, rendered: Photo[]) => {
+      if (stop >= rendered.length - 4) void loadMore();
     },
     [loadMore]
   );
@@ -165,20 +179,21 @@ function PhotoMasonry({
     // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
     return (
       <div className="columns-2 gap-2 [&>*]:mb-2">
-        {photos.map(renderButton)}
+        {items.map(renderButton)}
       </div>
     );
   }
 
   return (
     <Masonry
-      items={photos}
+      items={items}
       columnCount={2}
       columnGutter={8}
       rowGutter={8}
       itemKey={(p) => p.id}
       render={renderTile}
       onRender={onRender}
+      itemStyle={ITEM_STYLE}
     />
   );
 }

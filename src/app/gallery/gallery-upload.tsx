@@ -2,13 +2,17 @@
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
+import { useGalleryStore } from "@/lib/gallery-store";
+import type { GalleryPhoto } from "./types";
 
 // 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
 const UPLOAD_CONCURRENCY = 3;
 
-async function uploadOne(file: File): Promise<void> {
+// 업로드 → 생성된 사진 id + 표시 크기 반환
+async function uploadOne(
+  file: File
+): Promise<{ id: number; width: number; height: number }> {
   // 원본(1280px)만 생성 — 그리드도 원본을 lazy 로딩(별도 썸네일 없음)
   const { dataUrl, width, height } = await fileToScaledImage(file);
   const res = await fetch("/api/photos", {
@@ -27,13 +31,19 @@ async function uploadOne(file: File): Promise<void> {
         : "업로드에 실패했습니다.";
     throw new Error(serverMsg);
   }
+  const body = (await res.json()) as { photo: { id: number } };
+  return { id: body.photo.id, width, height };
 }
 
-export function GalleryUpload() {
-  const router = useRouter();
+export function GalleryUpload({
+  currentUser,
+}: {
+  currentUser: GalleryPhoto["author"];
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const prepend = useGalleryStore((s) => s.prepend);
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -42,17 +52,17 @@ export function GalleryUpload() {
 
     setBusy(true);
     setMsg(null);
-    let uploaded = 0;
     let firstError: string | null = null;
     let next = 0;
 
-    // 동시성 제한 워커 풀 — 큐에서 하나씩 꺼내 병렬 업로드
+    // 동시성 제한 워커 풀 — 큐에서 하나씩 꺼내 병렬 업로드.
+    // 성공 시 스토어에 prepend → 그리드가 같은 인스턴스에서 위치 트랜지션으로 밀려난다.
     async function worker() {
       while (next < files.length) {
         const file = files[next++];
         try {
-          await uploadOne(file);
-          uploaded += 1;
+          const { id, width, height } = await uploadOne(file);
+          prepend({ id, width, height, author: currentUser });
         } catch (error) {
           if (!firstError) {
             firstError =
@@ -68,7 +78,6 @@ export function GalleryUpload() {
           worker()
         )
       );
-      if (uploaded > 0) router.refresh();
       if (firstError) setMsg(firstError);
     } finally {
       setBusy(false);

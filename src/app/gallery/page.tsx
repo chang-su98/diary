@@ -25,9 +25,15 @@ export default async function GalleryPage() {
   const initialCursor =
     photos.length === PHOTO_PAGE_SIZE ? photos[photos.length - 1].id : null;
 
+  // 업로드 직후 낙관적 추가(스토어)에 등록자로 표시할 현재 사용자
+  const me = await prisma.user.findUnique({
+    where: { id: Number(session.sub) },
+    select: { username: true, displayName: true, avatar: true },
+  });
+
   return (
     <main className="relative mx-auto w-full max-w-md px-4 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))]">
-      <GalleryUpload />
+      <GalleryUpload currentUser={me} />
 
       <h1 className="mb-10 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
         GALLERY
