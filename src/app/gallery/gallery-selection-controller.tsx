@@ -51,6 +51,8 @@ export function GallerySelectionController() {
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      // 성공(다이얼로그 닫힘)·실패 모두 로딩 해제 — 안 풀면 다음 번 열 때 "삭제 중…"으로 고정됨
       setDeleting(false);
     }
   }
