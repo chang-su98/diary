@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { Masonry, type RenderComponentProps } from "masonic";
 import { useGalleryStore } from "@/lib/gallery-store";
+import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
 import type { GalleryPhoto as Photo } from "./types";
 
 // masonic은 렌더 단계에서 ResizeObserver(브라우저 전용)를 생성하므로 SSR에서 터진다.
@@ -57,12 +58,22 @@ function GalleryTile({
   photo: Photo;
   onSelect: (photo: Photo) => void;
 }) {
+  // 자기 선택 여부만 구독(불리언 슬라이스) → 자기 것이 바뀔 때만 리렌더
+  const selecting = useGallerySelectionStore((s) => s.selecting);
+  const selected = useGallerySelectionStore((s) => s.selectedIds.has(photo.id));
+  const toggle = useGallerySelectionStore((s) => s.toggle);
+
   return (
     <button
       type="button"
-      onClick={() => onSelect(photo)}
-      aria-label="사진 자세히 보기"
-      className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
+      onClick={() => (selecting ? toggle(photo.id) : onSelect(photo))}
+      aria-label={
+        selecting ? (selected ? "선택 해제" : "사진 선택") : "사진 자세히 보기"
+      }
+      aria-pressed={selecting ? selected : undefined}
+      className={`relative block w-full break-inside-avoid overflow-hidden rounded-xl border bg-bg transition hover:opacity-90 active:opacity-80 ${
+        selected ? "border-[#007aff] ring-2 ring-[#007aff]" : "border-line"
+      }`}
       // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
       style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
     >
@@ -83,6 +94,36 @@ function GalleryTile({
         }}
         className="size-full object-cover opacity-0 transition-opacity duration-500"
       />
+
+      {/* 선택 모드 좌상단 체크 원 — 선택됨: 파란 원+흰 체크 / 미선택: 빈 원 */}
+      {selecting && (
+        <span
+          aria-hidden
+          className={`absolute left-2 top-2 flex size-6 items-center justify-center rounded-full border transition-colors ${
+            selected
+              ? "border-[#007aff] bg-[#007aff]"
+              : "border-white/80 bg-black/20"
+          }`}
+        >
+          {selected && (
+            <svg
+              viewBox="0 0 24 24"
+              width={14}
+              height={14}
+              fill="none"
+              className="text-white"
+            >
+              <path
+                d="M5 12.5l4 4 10-10"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </span>
+      )}
     </button>
   );
 }
