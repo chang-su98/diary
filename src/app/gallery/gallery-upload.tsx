@@ -43,7 +43,7 @@ export function GalleryUpload({
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const prepend = useGalleryStore((s) => s.prepend);
+  const prependMany = useGalleryStore((s) => s.prependMany);
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -54,15 +54,15 @@ export function GalleryUpload({
     setMsg(null);
     let firstError: string | null = null;
     let next = 0;
+    const uploaded: GalleryPhoto[] = [];
 
-    // 동시성 제한 워커 풀 — 큐에서 하나씩 꺼내 병렬 업로드.
-    // 성공 시 스토어에 prepend → 그리드가 같은 인스턴스에서 위치 트랜지션으로 밀려난다.
+    // 동시성 제한 워커 풀 — 큐에서 하나씩 꺼내 병렬 업로드. 성공분은 모아둔다.
     async function worker() {
       while (next < files.length) {
         const file = files[next++];
         try {
           const { id, width, height } = await uploadOne(file);
-          prepend({ id, width, height, author: currentUser });
+          uploaded.push({ id, width, height, author: currentUser });
         } catch (error) {
           if (!firstError) {
             firstError =
@@ -78,6 +78,11 @@ export function GalleryUpload({
           worker()
         )
       );
+      // 전부 끝난 뒤 한 번에 추가(최신 id 먼저) → masonic이 높이를 한 번에 잡아 레이아웃 안정
+      if (uploaded.length > 0) {
+        uploaded.sort((a, b) => b.id - a.id);
+        prependMany(uploaded);
+      }
       if (firstError) setMsg(firstError);
     } finally {
       setBusy(false);

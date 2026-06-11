@@ -47,6 +47,46 @@ function dedupeById(list: Photo[]): Photo[] {
   return out;
 }
 
+// 그리드 타일. 이미지 로드 시 opacity 트랜지션으로 부드럽게 fade-in.
+// 캐시된 이미지(스크롤 복귀 등)는 ref에서 complete를 확인해 바로 보이게 한다.
+// (React state/effect 없이 DOM만 만져 set-state-in-effect 룰 회피)
+function GalleryTile({
+  photo,
+  onSelect,
+}: {
+  photo: Photo;
+  onSelect: (photo: Photo) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(photo)}
+      aria-label="사진 자세히 보기"
+      className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
+      // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
+      style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
+      <img
+        src={rawUrl(photo.id)}
+        alt=""
+        loading="lazy"
+        ref={(el) => {
+          // 이미 캐시되어 로드 완료면 트랜지션 없이 즉시 표시(스크롤 복귀 시 재fade 방지)
+          if (el?.complete) {
+            el.style.transition = "none";
+            el.style.opacity = "1";
+          }
+        }}
+        onLoad={(e) => {
+          e.currentTarget.style.opacity = "1";
+        }}
+        className="size-full object-cover opacity-0 transition-opacity duration-500"
+      />
+    </button>
+  );
+}
+
 type PhotosPage = { photos: Photo[]; nextCursor: number | null };
 
 /**
@@ -150,36 +190,21 @@ function PhotoMasonry({
     [loadMore]
   );
 
-  // 타일 마크업 — masonic 셀과 SSR 폴백(CSS columns)이 공유.
-  // break-inside-avoid는 폴백에서만 의미 있고 masonic(절대 배치)에선 무해.
-  const renderButton = (p: Photo) => (
-    <button
-      key={p.id}
-      type="button"
-      onClick={() => onSelect(p)}
-      aria-label="사진 자세히 보기"
-      className="block w-full break-inside-avoid overflow-hidden rounded-xl border border-line bg-bg transition-opacity hover:opacity-90 active:opacity-80"
-      // 저장된 원본 비율로 높이를 미리 확정 → 이미지 로드 전에도 정확히 측정/배치
-      style={{ aspectRatio: `${p.width} / ${p.height}` }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
-      <img
-        src={rawUrl(p.id)}
-        alt=""
-        loading="lazy"
-        className="size-full object-cover"
-      />
-    </button>
+  // 안정적인 render → masonic 셀 churn(깜빡임) 최소화. onSelect는 prop이라 안정적.
+  const renderTile = useCallback(
+    ({ data }: RenderComponentProps<Photo>) => (
+      <GalleryTile photo={data} onSelect={onSelect} />
+    ),
+    [onSelect]
   );
-
-  const renderTile = ({ data }: RenderComponentProps<Photo>) =>
-    renderButton(data);
 
   if (!isClient) {
     // SSR 폴백 — masonic 마운트 전 빈 화면 깜빡임 방지 (CSS columns 메이슨리)
     return (
       <div className="columns-2 gap-2 [&>*]:mb-2">
-        {items.map(renderButton)}
+        {items.map((p) => (
+          <GalleryTile key={p.id} photo={p} onSelect={onSelect} />
+        ))}
       </div>
     );
   }

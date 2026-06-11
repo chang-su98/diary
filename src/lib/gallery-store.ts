@@ -6,12 +6,14 @@ import type { GalleryPhoto } from "@/app/gallery/types";
 // 서버 새로고침(pull-refresh) 시에는 부모 key 리마운트로 자연 정리되고, dedup으로 중복 방지.
 interface GalleryState {
   added: GalleryPhoto[];
-  prepend: (photo: GalleryPhoto) => void;
+  // 업로드가 모두 끝난 뒤 한 번에 추가(한 장씩 넣으면 masonic이 높이를 못 잡아 레이아웃이 어긋남)
+  prependMany: (photos: GalleryPhoto[]) => void;
   clear: () => void;
 }
 
 export const useGalleryStore = create<GalleryState>((set) => ({
   added: [],
-  prepend: (photo) => set((state) => ({ added: [photo, ...state.added] })),
+  prependMany: (photos) =>
+    set((state) => ({ added: [...photos, ...state.added] })),
   clear: () => set({ added: [] }),
 }));
