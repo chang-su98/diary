@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
 import { useGalleryStore } from "@/lib/gallery-store";
+import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
 import type { GalleryPhoto } from "./types";
 
 // 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
@@ -55,6 +56,10 @@ export function GalleryUpload({
   const [msg, setMsg] = useState<string | null>(null);
   const prependMany = useGalleryStore((s) => s.prependMany);
   const bumpLayout = useGalleryStore((s) => s.bumpLayout);
+  const selecting = useGallerySelectionStore((s) => s.selecting);
+  const enterSelection = useGallerySelectionStore((s) => s.enter);
+  const exitSelection = useGallerySelectionStore((s) => s.exit);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // 언마운트 시 대기 중인 보정 타이머 정리(언마운트 후 발화 방지)
   useEffect(() => {
@@ -134,29 +139,82 @@ export function GalleryUpload({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={busy}
-        aria-label="사진 추가"
-        className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
-      >
-        {/* plus.svg를 mask로 사용 → 테마색(bg-text)으로 채색 (profile 헤더와 동일 패턴) */}
-        <span
-          aria-hidden
-          className="block size-6 bg-text"
-          style={{
-            maskImage: "url(/asset/images/contents/plus.svg)",
-            WebkitMaskImage: "url(/asset/images/contents/plus.svg)",
-            maskRepeat: "no-repeat",
-            WebkitMaskRepeat: "no-repeat",
-            maskPosition: "center",
-            WebkitMaskPosition: "center",
-            maskSize: "contain",
-            WebkitMaskSize: "contain",
-          }}
-        />
-      </button>
+      {selecting ? (
+        <button
+          type="button"
+          onClick={exitSelection}
+          className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 text-sm font-medium text-text transition-opacity hover:opacity-60"
+        >
+          취소
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          disabled={busy}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="메뉴 열기"
+          className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
+        >
+          {/* plus.svg를 mask로 사용 → 테마색(bg-text)으로 채색 (profile 헤더와 동일 패턴) */}
+          <span
+            aria-hidden
+            className="block size-6 bg-text"
+            style={{
+              maskImage: "url(/asset/images/contents/plus.svg)",
+              WebkitMaskImage: "url(/asset/images/contents/plus.svg)",
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskPosition: "center",
+              maskSize: "contain",
+              WebkitMaskSize: "contain",
+            }}
+          />
+        </button>
+      )}
+
+      {/* 팝오버 메뉴 — 배경 탭하면 닫힘 */}
+      {menuOpen && !selecting && (
+        <>
+          <button
+            type="button"
+            aria-label="메뉴 닫기"
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 z-[65] cursor-default"
+          />
+          <div
+            role="menu"
+            className="absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                fileRef.current?.click();
+              }}
+              className="flex w-full items-center px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
+            >
+              사진 추가
+            </button>
+            {hasPhotos && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  enterSelection();
+                }}
+                className="flex w-full items-center border-t border-line px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
+              >
+                사진 삭제
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       <input
         ref={fileRef}
