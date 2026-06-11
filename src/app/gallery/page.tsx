@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PHOTO_PAGE_SIZE } from "@/app/api/photos/route";
 import { GalleryUpload } from "./gallery-upload";
 import { GalleryGrid } from "./gallery-grid";
+import { GallerySelectionController } from "./gallery-selection-controller";
 
 export default async function GalleryPage() {
   const session = await getSession();
@@ -46,12 +47,15 @@ export default async function GalleryPage() {
           오른쪽 위 + 로 추가해 보세요.
         </p>
       ) : (
-        // 첫 페이지가 바뀌면(업로드·새로고침) key 변경으로 리마운트 → 목록 재시드
-        <GalleryGrid
-          key={`${photos[0].id}:${photos.length}`}
-          initialPhotos={photos}
-          initialCursor={initialCursor}
-        />
+        <>
+          {/* 첫 페이지가 바뀌면(업로드·새로고침) key 변경으로 리마운트 → 목록 재시드 */}
+          <GalleryGrid
+            key={`${photos[0].id}:${photos.length}`}
+            initialPhotos={photos}
+            initialCursor={initialCursor}
+          />
+          <GallerySelectionController />
+        </>
       )}
     </main>
   );
