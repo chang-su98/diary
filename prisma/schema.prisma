@@ -51,7 +51,8 @@ model Anniversary {
 // width/height는 레이아웃 시프트 방지를 위한 원본 표시 비율.
 model Photo {
   id        Int      @id @default(autoincrement())
-  data      String   @db.MediumText // data URL (리사이즈된 이미지)
+  data      String   @db.MediumText // 원본(리사이즈 1280px) data URL — 상세 모달용
+  thumb     String   @db.MediumText // 썸네일(≈400px) data URL — 갤러리 그리드용
   width     Int // 표시 비율용 가로 px
   height    Int // 표시 비율용 세로 px
   authorId  Int? // 올린 사람(User) — 삭제 시 null

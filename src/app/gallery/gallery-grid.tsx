@@ -24,7 +24,7 @@ function useIsClient() {
 
 type Photo = {
   id: number;
-  data: string;
+  thumb: string; // 그리드용 썸네일 — 원본(data)은 상세 열 때 별도 fetch
   width: number;
   height: number;
   author: {
@@ -111,7 +111,7 @@ export function GalleryGrid({
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
       <img
-        src={p.data}
+        src={p.thumb}
         alt=""
         loading="lazy"
         className="size-full object-cover"
@@ -142,78 +142,116 @@ export function GalleryGrid({
         </div>
       )}
 
-      {/* 모달은 body로 포털 — PageTransition의 transform 쌓임 맥락을 벗어나
-          하단 탭바(z-40) 위로 dim이 올라오도록 한다 */}
+      {/* 상세 모달은 body로 포털 + 선택된 사진 id로 key → 사진 전환 시 리마운트(원본 재fetch) */}
       {selected &&
         createPortal(
-          // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
-          <div
-            className="animate-modal-fade fixed inset-0 z-[60] flex flex-col bg-bg"
-            role="dialog"
-            aria-modal="true"
-            aria-label="사진 상세"
-            onClick={() => setSelected(null)}
-          >
-            {/* 상단: 등록자 아이디 + 프로필 사진 */}
-            <div
-              className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="size-9 overflow-hidden rounded-full border border-line bg-bg">
-                {selected.author?.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- data URL 이미지
-                  <img
-                    src={selected.author.avatar}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <span className="flex size-full items-center justify-center text-sm font-light text-text-muted">
-                    {(selected.author?.username ?? "?").charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </span>
-              <span className="text-sm tracking-wide text-text">
-                {selected.author?.username ?? "알 수 없음"}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                aria-label="닫기"
-                className="ml-auto p-1 text-text transition-opacity hover:opacity-60"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                  width={22}
-                  height={22}
-                  className="size-[22px]"
-                >
-                  <path
-                    d="M6 6L18 18M18 6L6 18"
-                    stroke="currentColor"
-                    strokeWidth={1.8}
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* 사진 자세히 보기 */}
-            <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-              {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
-              <img
-                src={selected.data}
-                alt=""
-                onClick={(e) => e.stopPropagation()}
-                className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"
-              />
-            </div>
-          </div>,
+          <PhotoDetail
+            key={selected.id}
+            photo={selected}
+            onClose={() => setSelected(null)}
+          />,
           document.body
         )}
     </>
+  );
+}
+
+/**
+ * 사진 상세 라이트박스. 그리드는 썸네일만 받으므로 여기서 원본(data)을 별도 fetch한다.
+ * 원본이 도착하기 전에는 썸네일을 확대해 placeholder로 즉시 보여주고, 도착하면 교체한다.
+ * 선택 사진 id로 부모가 key를 주어 사진 전환 시 리마운트 → 매번 새 fetch(상태 reset effect 불필요).
+ */
+function PhotoDetail({
+  photo,
+  onClose,
+}: {
+  photo: Photo;
+  onClose: () => void;
+}) {
+  const [fullData, setFullData] = useState<string | null>(null);
+
+  // 원본 로드 — setState는 비동기 콜백 안에서만 호출(set-state-in-effect 룰 무관)
+  useEffect(() => {
+    let ignore = false;
+    fetch(`/api/photos/${photo.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { data: string } | null) => {
+        if (!ignore && json) setFullData(json.data);
+      })
+      .catch((error: unknown) => {
+        console.warn("[gallery] 원본 로드 실패:", error);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [photo.id]);
+
+  return (
+    // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
+    <div
+      className="animate-modal-fade fixed inset-0 z-[60] flex flex-col bg-bg"
+      role="dialog"
+      aria-modal="true"
+      aria-label="사진 상세"
+      onClick={onClose}
+    >
+      {/* 상단: 등록자 아이디 + 프로필 사진 */}
+      <div
+        className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="size-9 overflow-hidden rounded-full border border-line bg-bg">
+          {photo.author?.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element -- data URL 이미지
+            <img
+              src={photo.author.avatar}
+              alt=""
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center text-sm font-light text-text-muted">
+              {(photo.author?.username ?? "?").charAt(0).toUpperCase()}
+            </span>
+          )}
+        </span>
+        <span className="text-sm tracking-wide text-text">
+          {photo.author?.username ?? "알 수 없음"}
+        </span>
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="닫기"
+          className="ml-auto p-1 text-text transition-opacity hover:opacity-60"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+            width={22}
+            height={22}
+            className="size-[22px]"
+          >
+            <path
+              d="M6 6L18 18M18 6L6 18"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* 사진 자세히 보기 — 원본 도착 전엔 썸네일을 placeholder로 표시 */}
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL 이미지 */}
+        <img
+          src={fullData ?? photo.thumb}
+          alt=""
+          onClick={(e) => e.stopPropagation()}
+          className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"
+        />
+      </div>
+    </div>
   );
 }

@@ -8,10 +8,11 @@ import { photoCreateSchema } from "@/lib/schemas/photo";
 // 갤러리 한 페이지 크기 — 페이지·API 공통
 export const PHOTO_PAGE_SIZE = 10;
 
-// 상세 모달 등록자 표시용 — author는 삭제 시 null
+// 그리드용 — 원본(data)은 제외하고 썸네일(thumb)만. 원본은 상세 라우트에서 별도 로드.
+// author는 등록자 표시용(삭제 시 null).
 const photoSelect = {
   id: true,
-  data: true,
+  thumb: true,
   width: true,
   height: true,
   author: { select: { username: true, displayName: true, avatar: true } },
@@ -92,10 +93,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { data, width, height } = parsed.data;
+    const { data, thumb, width, height } = parsed.data;
     const photo = await prisma.photo.create({
-      data: { data, width, height, authorId }, // 올린 사용자를 작성자로 기록
-      select: { id: true, data: true, width: true, height: true, createdAt: true },
+      data: { data, thumb, width, height, authorId }, // 올린 사용자를 작성자로 기록
+      select: { id: true },
     });
     return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {

@@ -16,7 +16,7 @@ export default async function GalleryPage() {
     take: PHOTO_PAGE_SIZE,
     select: {
       id: true,
-      data: true,
+      thumb: true, // 그리드는 썸네일만 — 원본은 상세 열 때 별도 로드
       width: true,
       height: true,
       // 상세 모달의 등록자 표시용 — author는 삭제 시 null

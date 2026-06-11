@@ -22,11 +22,13 @@ export function GalleryUpload() {
     try {
       // 큰 payload 병렬 전송을 피해 순차 업로드
       for (const file of files) {
+        // 원본(상세용 1280px) + 썸네일(그리드용 ≈400px)을 함께 생성
         const { dataUrl, width, height } = await fileToScaledImage(file);
+        const { dataUrl: thumb } = await fileToScaledImage(file, 400, 0.7);
         const res = await fetch("/api/photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: dataUrl, width, height }),
+          body: JSON.stringify({ data: dataUrl, thumb, width, height }),
         });
         if (!res.ok) {
           const body: unknown = await res.json().catch(() => null);
