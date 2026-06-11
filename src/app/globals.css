@@ -139,7 +139,7 @@
 
 @keyframes splash-out {
   0%,
-  70% {
+  80% {
     opacity: 1;
     visibility: visible;
   }
