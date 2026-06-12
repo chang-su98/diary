@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SINCE, daysSince } from "@/lib/relationship";
 import { MeetCalendar } from "@/app/_components/meet-calendar";
 import { CoupleLine } from "@/app/_components/couple-line";
+import { Reveal } from "@/app/_components/reveal";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
@@ -35,7 +36,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
-      {/* 히어로 — 오리지널 라인 드로잉(머리 맞댄 두 사람 + 하트) */}
+      {/* 히어로 — 오리지널 라인 드로잉(페이드 없이 그려지는 모션만) */}
       <section>
         <div className="flex justify-center">
           <CoupleLine className="h-44 w-auto text-text" />
@@ -43,7 +44,7 @@ export default async function Home() {
       </section>
 
       {/* 두 사람 이름 + 처음 만난 날 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
-      <section className="space-y-7">
+      <Reveal className="space-y-7">
         <div className="text-center">
           <p className="mb-5 text-[0.7rem] tracking-[0.32em] text-text-muted">
             SINCE {SINCE.year} · {pad(SINCE.month)} · {pad(SINCE.day)}
@@ -69,22 +70,22 @@ export default async function Home() {
             함께한 지 {days}일
           </p>
         </div>
-      </section>
+      </Reveal>
 
-      {/* 최근 사진 — RECENT 헤더(왼쪽) + more(갤러리로, 오른쪽) + 정사각 3×2 */}
+      {/* 최근 사진 — PHOTO 헤더(왼쪽) + MORE(갤러리로, 오른쪽) + 정사각 3×2 */}
       {recent.length > 0 && (
-        <section>
+        <Reveal>
           <div className="mb-2.5 flex items-center justify-between">
-            <p className="text-sm tracking-[0.3em] text-text">RECENT</p>
+            <p className="text-sm tracking-[0.3em] text-text">PHOTO</p>
             <Link
               href="/gallery"
-              className="flex items-center gap-0.5 text-xs tracking-[0.28em] text-text-muted transition-opacity hover:opacity-60"
+              className="flex items-center gap-0.5 text-[0.65rem] tracking-[0.28em] text-text-muted transition-opacity hover:opacity-60"
             >
               MORE
               {/* chevron-right.svg를 mask로 사용 → 테마색(bg-text-muted)으로 채색 */}
               <span
                 aria-hidden
-                className="block size-3.5 bg-text-muted"
+                className="block size-3 bg-text-muted"
                 style={{
                   maskImage: "url(/asset/images/contents/chevron-right.svg)",
                   WebkitMaskImage: "url(/asset/images/contents/chevron-right.svg)",
@@ -113,7 +114,7 @@ export default async function Home() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
       )}
     </main>
   );

@@ -183,11 +183,29 @@
   }
 }
 
+/* 스크롤 진입 fade-up — Reveal 컴포넌트가 보일 때 .reveal-in 토글 */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-in {
+  opacity: 1;
+  transform: none;
+}
+
 .couple-draw {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   /* 끝에서 아주 약한 감속 — 거의 일정하되 끝만 살짝 */
   animation: draw-line 3.6s cubic-bezier(0.5, 0.2, 0.7, 0.7) both;
+  /* 스플래시가 끝나기 전엔 멈춰서 from(빈 선) 상태 유지 → 끝난 뒤 그려진다 */
+  animation-play-state: paused;
+}
+.splash-done .couple-draw {
+  animation-play-state: running;
 }
 
 body {
