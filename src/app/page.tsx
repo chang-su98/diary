@@ -28,20 +28,21 @@ export default async function Home() {
     }),
   ]);
 
-  const names = users.length
-    ? users.map((u) => u.displayName ?? u.username)
-    : [session.username];
+  // 표시 이름 + username(=인스타 아이디). 폐쇄형 2인 앱.
+  const people = users.length
+    ? users.map((u) => ({ name: u.displayName ?? u.username, username: u.username }))
+    : [{ name: session.username, username: session.username }];
   const recent = photos; // 최신 6장 — 정사각 3×2 그리드
   const days = daysSince();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
-      {/* 히어로 — 오리지널 라인 드로잉(페이드 없이 그려지는 모션만) */}
-      <section>
+      {/* 히어로 — 라인 드로잉 + 진입 fade-in */}
+      <Reveal>
         <div className="flex justify-center">
           <CoupleLine className="h-44 w-auto text-text" />
         </div>
-      </section>
+      </Reveal>
 
       {/* 두 사람 이름 + 처음 만난 날 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
       <Reveal className="space-y-7">
@@ -50,15 +51,44 @@ export default async function Home() {
             SINCE {SINCE.year} · {pad(SINCE.month)} · {pad(SINCE.day)}
           </p>
           <h1 className="text-2xl font-extralight tracking-[0.18em] text-text">
-            {names.map((n, i) => (
-              <span key={i}>
+            {people.map((p, i) => (
+              <span key={p.username}>
                 {i > 0 && (
                   <span className="font-thin text-text-muted"> &amp; </span>
                 )}
-                {n}
+                {p.name}
               </span>
             ))}
           </h1>
+
+          {/* 두 사람 인스타그램(아이디 = username) */}
+          <div className="mt-4 flex items-center justify-center gap-5">
+            {people.map((p) => (
+              <a
+                key={p.username}
+                href={`https://instagram.com/${encodeURIComponent(p.username)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[0.7rem] tracking-wide text-text-muted transition-opacity hover:opacity-60"
+              >
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-4"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" y1="6.5" x2="17.5" y2="6.5" />
+                </svg>
+                @{p.username}
+              </a>
+            ))}
+          </div>
         </div>
 
         <div>
