@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
@@ -48,14 +48,11 @@ export function GalleryUpload({
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  // 업로드 후 레이아웃 보정 타이머. 언마운트/다음 업로드 시 정리해 유실 호출 방지.
-  const reflowTimer = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   // 업로드 진행도 — done/total(파일 단위). indeterminate 스피너 대신 프로그레스바 표시용.
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [msg, setMsg] = useState<string | null>(null);
   const prependMany = useGalleryStore((s) => s.prependMany);
-  const bumpLayout = useGalleryStore((s) => s.bumpLayout);
   const selecting = useGallerySelectionStore((s) => s.selecting);
   const enterSelection = useGallerySelectionStore((s) => s.enter);
   const selectAll = useGallerySelectionStore((s) => s.selectAll);
@@ -66,20 +63,10 @@ export function GalleryUpload({
   );
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 언마운트 시 대기 중인 보정 타이머 정리(언마운트 후 발화 방지)
-  useEffect(() => {
-    return () => {
-      if (reflowTimer.current !== null) window.clearTimeout(reflowTimer.current);
-    };
-  }, []);
-
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // 같은 파일 재선택 허용
     if (files.length === 0) return;
-
-    // 직전 업로드의 보정 타이머가 남아 있으면 취소(중복 발화 방지)
-    if (reflowTimer.current !== null) window.clearTimeout(reflowTimer.current);
 
     setBusy(true);
     setProgress({ done: 0, total: files.length });
@@ -113,7 +100,8 @@ export function GalleryUpload({
           worker()
         )
       );
-      // 전부 끝난 뒤 한 번에 추가(최신 id 먼저) → masonic이 높이를 한 번에 잡아 레이아웃 안정
+      // 전부 끝난 뒤 한 번에 추가(최신 id 먼저) → 그리드가 prepend 받아 기존 타일을
+      // 새 위치로 부드럽게 밀어내고 새 타일을 채운다(레이아웃은 그리드가 직접 재계산).
       if (uploaded.length > 0) {
         uploaded.sort((a, b) => b.id - a.id);
         prependMany(uploaded);
@@ -123,17 +111,9 @@ export function GalleryUpload({
       setBusy(false);
     }
 
-    // 낙관적 추가의 슬라이드 애니메이션이 일부 재생된 뒤 레이아웃을 보정한다.
-    // - 기존 그리드가 있으면: masonic만 리마운트(로컬 리레이아웃) → 무한스크롤 누적·
-    //   스크롤 위치 보존, 서버 왕복 없음.
-    // - 빈 갤러리였으면: 그리드 자체가 없으니 서버 재시드(router.refresh)로 띄운다.
-    if (uploaded.length > 0) {
-      reflowTimer.current = window.setTimeout(() => {
-        reflowTimer.current = null;
-        if (hasPhotos) bumpLayout();
-        else router.refresh();
-      }, 250);
-    }
+    // 빈 갤러리였으면 그리드 자체가 없으니(서버 empty 분기) 서버 재시드로 띄운다.
+    // 기존 그리드가 있으면 위 prependMany만으로 즉시 부드럽게 반영된다(서버 왕복 없음).
+    if (uploaded.length > 0 && !hasPhotos) router.refresh();
   }
 
   // 0~100(%). total이 0이면 0으로 안전 처리.

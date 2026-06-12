@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { usePullRefreshStore } from "@/lib/pull-refresh-store";
 
 const TRIGGER = 70; // 새로고침 발동 거리(px)
 const MAX_PULL = 110; // 최대 당김 거리
@@ -54,6 +55,8 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
       active.current = false;
     }
     function onStart(e: TouchEvent) {
+      // 선택 드래그 등으로 새로고침이 꺼져 있으면 제스처 자체를 시작하지 않는다
+      if (!usePullRefreshStore.getState().enabled) return;
       if (window.scrollY > 0 || busy.current) return;
       if (!scrollableAncestorAtTop(e.target)) return;
       startY.current = e.touches[0]?.clientY ?? null;

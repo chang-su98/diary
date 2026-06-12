@@ -9,6 +9,10 @@ interface GallerySelectionState {
   enter: () => void;
   exit: () => void;
   toggle: (id: number) => void;
+  // 드래그 선택용 — 명시적으로 선택/해제 상태를 칠한다(이미 그 상태면 no-op)
+  setSelected: (id: number, on: boolean) => void;
+  // 사각형 드래그 선택용 — 선택 집합을 통째로 교체(타일은 바뀐 것만 리렌더)
+  setSelection: (ids: Set<number>) => void;
   setAllIds: (ids: number[]) => void;
   selectAll: () => void;
   deselectAll: () => void;
@@ -33,6 +37,16 @@ export const useGallerySelectionStore = create<GallerySelectionState>((set) => (
       else next.add(id);
       return { selectedIds: next };
     }),
+  // 드래그 페인트 — 상태가 그대로면 새 Set을 만들지 않아 불필요한 리렌더를 막는다
+  setSelected: (id, on) =>
+    set((state) => {
+      if (state.selectedIds.has(id) === on) return state;
+      const next = new Set(state.selectedIds);
+      if (on) next.add(id);
+      else next.delete(id);
+      return { selectedIds: next };
+    }),
+  setSelection: (ids) => set({ selectedIds: ids }),
   // 그리드가 현재 보이는 id 목록을 동기화(전체선택의 소스)
   setAllIds: (ids) => set({ allIds: ids }),
   // 현재 보이는 사진 전부 선택

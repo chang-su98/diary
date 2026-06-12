@@ -2,31 +2,40 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
 import { useGalleryStore } from "@/lib/gallery-store";
+import { usePullRefreshStore } from "@/lib/pull-refresh-store";
 
-// 타일 fade-out 애니메이션 시간(ms) — gallery-grid 타일 transition과 맞춘다.
-const DELETE_ANIM_MS = 320;
+// 타일 축소·페이드 애니메이션 시간(ms) — gallery-grid 타일 transition과 맞춘다.
+const DELETE_ANIM_MS = 360;
 
 // 삭제 확인 다이얼로그 + 실제 삭제 실행. 갤러리 페이지에만 마운트되어,
 // 페이지를 벗어나면(언마운트) 선택 모드를 자동 종료한다.
 export function GallerySelectionController() {
-  const router = useRouter();
   const confirmOpen = useGallerySelectionStore((s) => s.confirmOpen);
+  const selecting = useGallerySelectionStore((s) => s.selecting);
   const selectedIds = useGallerySelectionStore((s) => s.selectedIds);
   const closeConfirm = useGallerySelectionStore((s) => s.closeConfirm);
   const exit = useGallerySelectionStore((s) => s.exit);
   const startDeleting = useGalleryStore((s) => s.startDeleting);
-  const refreshTimer = useRef<number | null>(null);
+  const finalizeDelete = useGalleryStore((s) => s.finalizeDelete);
+  const setPullEnabled = usePullRefreshStore((s) => s.setEnabled);
+  const finalizeTimer = useRef<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 갤러리 이탈 시: 대기 중인 재시드 타이머 정리 + 선택 모드 종료
+  // 선택 모드 동안 당겨서 새로고침을 끈다(위로 당기는 드래그 선택과 충돌·리로드 방지).
+  // 선택 해제·갤러리 이탈 시 자동 복구.
+  useEffect(() => {
+    setPullEnabled(!selecting);
+    return () => setPullEnabled(true);
+  }, [selecting, setPullEnabled]);
+
+  // 갤러리 이탈 시: 대기 중인 제거 타이머 정리 + 선택 모드 종료
   useEffect(() => {
     return () => {
-      if (refreshTimer.current !== null)
-        window.clearTimeout(refreshTimer.current);
+      if (finalizeTimer.current !== null)
+        window.clearTimeout(finalizeTimer.current);
       useGallerySelectionStore.getState().exit();
     };
   }, []);
@@ -55,13 +64,13 @@ export function GallerySelectionController() {
             : "삭제에 실패했습니다.";
         throw new Error(msg);
       }
-      // 1) 선택한 타일을 fade/scale-out(배열 길이는 유지 → masonic 크래시 회피)
+      // 1) 선택한 타일을 축소·페이드 시작 + 나머지 타일은 새 위치로 흘러간다(재정렬)
       startDeleting(ids);
       // 2) 다이얼로그·선택 모드 종료(타일은 deletingIds로 계속 사라지는 중)
       exit();
-      // 3) 애니메이션 후 서버 재시드 → 실제 제거 + 빈 갤러리 전환(리마운트 시 clear로 정리)
-      refreshTimer.current = window.setTimeout(
-        () => router.refresh(),
+      // 3) 애니메이션 종료 후 목록에서 완전히 제거(리마운트 없음 → 스크롤·누적 보존)
+      finalizeTimer.current = window.setTimeout(
+        () => finalizeDelete(ids),
         DELETE_ANIM_MS
       );
     } catch (err) {
