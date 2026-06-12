@@ -4,7 +4,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
-import { photoCreateSchema, photoDeleteSchema } from "@/lib/schemas/photo";
+import {
+  MAX_PHOTO_BYTES,
+  photoCreateSchema,
+  photoDeleteSchema,
+} from "@/lib/schemas/photo";
 import { dataUrlToBuffer, getStorage } from "@/lib/storage";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
@@ -110,9 +114,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 디코드된 실제 바이트 상한 검증 — base64 문자 수 상한(스키마)과 별개로
+    // 서버에서 디코드 크기를 직접 확인(과대 페이로드/메모리 스파이크 차단).
+    const bytes = full.buffer.length;
+    if (bytes > MAX_PHOTO_BYTES) {
+      console.warn(
+        `[POST /api/photos] 이미지 크기 초과: ${bytes} > ${MAX_PHOTO_BYTES}`
+      );
+      return NextResponse.json(
+        { error: "이미지 용량이 너무 큽니다." },
+        { status: 400 }
+      );
+    }
+
     // 스토리지 용량 가드 — R2 무료 한도(10GB) 초과 방지(기본 9.5GB).
     // 누적 바이트 합 + 이번 업로드가 상한을 넘으면 거절(스토리지·DB 쓰기 전에 중단).
-    const bytes = full.buffer.length;
     const used = (await prisma.photo.aggregate({ _sum: { bytes: true } }))._sum
       .bytes ?? 0;
     if (used + bytes > STORAGE_MAX_BYTES) {
@@ -134,6 +150,46 @@ export async function POST(req: NextRequest) {
       data: { dataKey, width, height, bytes, authorId }, // 올린 사용자를 작성자로 기록
       select: { id: true },
     });
+
+    // 사전 검사(aggregate)와 create 사이에는 경합 구간이 있어(동시 업로드가
+    // 같은 used 합을 읽고 각자 통과) 한도를 소폭 넘길 수 있다. create 직후
+    // 합계를 재확인해 실제로 초과했으면 방금 만든 행·객체를 롤백한다.
+    // 주의: 이 재확인은 경합을 "완전히" 해소하지 않는다(소규모 동시성 가정의
+    // best-effort 가드). 강한 보장이 필요하면 bytes 누적을 단일 카운터 행의
+    // 원자적 증가나 트랜잭션 잠금으로 옮겨야 한다.
+    const usedAfter =
+      (await prisma.photo.aggregate({ _sum: { bytes: true } }))._sum.bytes ?? 0;
+    if (usedAfter > STORAGE_MAX_BYTES) {
+      console.warn(
+        `[POST /api/photos] 경합으로 한도 초과 — 롤백: usedAfter=${usedAfter} > ${STORAGE_MAX_BYTES}`
+      );
+      // 롤백 실패 시 그 행의 bytes가 used 집계를 영구 오염시키므로(이후 업로드를
+      // 잘못 차단) 운영자가 수동 정리할 수 있게 id·dataKey를 경보 로그로 남긴다.
+      const rollbackOk = await prisma.photo
+        .delete({ where: { id: photo.id } })
+        .then(() => true)
+        .catch((e: unknown) => {
+          console.error(
+            `[POST /api/photos][ALERT] 롤백(DB) 실패 — 수동 정리 필요: id=${photo.id} key=${dataKey}`,
+            e
+          );
+          return false;
+        });
+      // DB 행이 남았다면 스토리지 객체도 유지해 정합성 확인이 가능하게 한다.
+      if (rollbackOk) {
+        await storage.delete(dataKey).catch((e: unknown) =>
+          console.error(
+            `[POST /api/photos][ALERT] 롤백(스토리지) 실패 — 고아 객체: key=${dataKey}`,
+            e
+          )
+        );
+      }
+      return NextResponse.json(
+        { error: "저장 공간이 가득 찼어요. 무료 용량 한도에 도달했습니다." },
+        { status: 507 }
+      );
+    }
+
     return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/photos]", error);
@@ -149,13 +205,13 @@ export async function DELETE(req: NextRequest) {
   try {
     if (!isSameOriginRequest(req)) {
       return NextResponse.json(
-        { error: "許可されていないリクエストです" },
+        { error: "허용되지 않은 요청입니다." },
         { status: 403 }
       );
     }
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
     let body: unknown;
@@ -164,7 +220,7 @@ export async function DELETE(req: NextRequest) {
     } catch (error) {
       console.warn("[DELETE /api/photos] Request body 파싱 실패:", error);
       return NextResponse.json(
-        { error: "リクエストが正しくありません" },
+        { error: "잘못된 요청입니다." },
         { status: 400 }
       );
     }
@@ -173,7 +229,7 @@ export async function DELETE(req: NextRequest) {
     if (!parsed.success) {
       console.warn("[DELETE /api/photos] 입력 검증 실패:", parsed.error.issues);
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "入力値が正しくありません" },
+        { error: parsed.error.issues[0]?.message ?? "입력값이 올바르지 않습니다." },
         { status: 400 }
       );
     }
@@ -211,7 +267,7 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error("[DELETE /api/photos]", error);
     return NextResponse.json(
-      { error: "サーバーエラーが発生しました" },
+      { error: "서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }

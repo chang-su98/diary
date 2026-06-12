@@ -59,7 +59,7 @@ model Photo {
   thumb     String?  @db.Text // (레거시) 썸네일 base64 — 폴백
   width     Int // 표시 비율용 가로 px
   height    Int // 표시 비율용 세로 px
-  bytes     Int      @default(0) // 원본+썸네일 바이트 합 — 스토리지 용량 가드용
+  bytes     Int      @default(0) // 현재 원본 바이트만 기록 — 스토리지 용량 가드용(썸네일 도입 시 합산)
   authorId  Int? // 올린 사람(User) — 삭제 시 null
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())

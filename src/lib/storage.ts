@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { IMAGE_DATA_URL_RE } from "@/lib/schemas/common";
 
 // 파일 스토리지 추상화(Port). 어댑터를 교체해 로컬 디스크 ↔ 클라우드(R2/S3)를 갈아끼운다.
 // 현재는 로컬 디스크 어댑터만 구현 — 배포(서버리스) 시 R2 어댑터를 추가하고 env로 전환한다.
@@ -25,13 +26,12 @@ const EXT_BY_TYPE: Record<string, string> = {
   "image/webp": "webp",
 };
 
-const DATA_URL_RE = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/;
-
 // data URL → 바이너리 버퍼 + 콘텐츠타입 + 확장자. 형식 불일치 시 null.
+// 검증 정규식은 스키마와 단일 소스(IMAGE_DATA_URL_RE)를 공유한다.
 export function dataUrlToBuffer(
   dataUrl: string
 ): { buffer: Buffer; contentType: string; ext: string } | null {
-  const m = DATA_URL_RE.exec(dataUrl);
+  const m = IMAGE_DATA_URL_RE.exec(dataUrl);
   if (!m) return null;
   const contentType = m[1];
   const ext = EXT_BY_TYPE[contentType] ?? "jpg";
