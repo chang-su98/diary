@@ -41,6 +41,9 @@ function computeLayout(list: Photo[], containerWidth: number): Layout {
 // 그리드에서 받은 이미지가 캐시되어 모달이 즉시 뜬다.
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 
+// 상세 모달 닫힘 애니메이션 시간(ms) — globals.css의 modal-*-out(0.18s)과 맞춘다.
+const MODAL_ANIM_MS = 180;
+
 // id 기준 중복 제거(앞선 항목 우선) — 스토어 added와 서버 photos가 겹칠 때 대비
 function dedupeById(list: Photo[]): Photo[] {
   const seen = new Set<number>();
@@ -162,7 +165,28 @@ export function GalleryGrid({
   initialCursor: number | null;
 }) {
   const [selected, setSelected] = useState<Photo | null>(null);
+  // 닫힘 애니메이션을 위해 잠깐 유지 — closing 동안 역방향 애니 재생 후 언마운트
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<number | null>(null);
   const clearAdded = useGalleryStore((s) => s.clear);
+
+  const openDetail = useCallback((photo: Photo) => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setClosing(false);
+    setSelected(photo);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      setSelected(null);
+      setClosing(false);
+      closeTimer.current = null;
+    }, MODAL_ANIM_MS);
+  }, []);
 
   // 이 인스턴스는 서버 재시드(router.refresh / pull-refresh)로 새 key에 마운트되며,
   // 이때 initialPhotos엔 업로드분이 이미 포함돼 있다. 낙관적 추가 스토어(added)를 비워
@@ -178,31 +202,40 @@ export function GalleryGrid({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [selected]);
+  }, [selected, requestClose]);
+
+  // 언마운트 시 대기 중인 닫힘 타이머 정리
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    []
+  );
 
   return (
     <>
-      {/* onSelect는 안정적(setSelected) → selected가 바뀌어도 그리드는 리렌더 안 됨 */}
+      {/* onSelect는 안정적(openDetail) → selected가 바뀌어도 그리드는 리렌더 안 됨 */}
       <PhotoMasonry
         initialPhotos={initialPhotos}
         initialCursor={initialCursor}
-        onSelect={setSelected}
+        onSelect={openDetail}
       />
 
-      {/* 상세 모달은 body로 포털 + 선택 사진 id로 key */}
+      {/* 상세 모달은 body로 포털 + 선택 사진 id로 key. closing 동안 역방향 애니 후 언마운트 */}
       {selected &&
         createPortal(
           <PhotoDetail
             key={selected.id}
             photo={selected}
-            onClose={() => setSelected(null)}
+            closing={closing}
+            onClose={requestClose}
           />,
           document.body
         )}
@@ -381,15 +414,19 @@ function PhotoMasonry({
  */
 function PhotoDetail({
   photo,
+  closing,
   onClose,
 }: {
   photo: Photo;
+  closing: boolean;
   onClose: () => void;
 }) {
   return (
     // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
     <div
-      className="animate-modal-fade fixed inset-0 z-[60] flex flex-col bg-bg"
+      className={`fixed inset-0 z-[60] flex flex-col bg-bg ${
+        closing ? "animate-modal-fade-out" : "animate-modal-fade"
+      }`}
       role="dialog"
       aria-modal="true"
       aria-label="사진 상세"
@@ -449,7 +486,9 @@ function PhotoDetail({
           src={rawUrl(photo.id)}
           alt=""
           onClick={(e) => e.stopPropagation()}
-          className="animate-modal-pop max-h-full max-w-full rounded-lg object-contain"
+          className={`max-h-full max-w-full rounded-lg object-contain ${
+            closing ? "animate-modal-pop-out" : "animate-modal-pop"
+          }`}
         />
       </div>
     </div>

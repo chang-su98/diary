@@ -116,6 +116,9 @@
   /* 사진 상세 모달 — 배경 페이드 + 사진 팝업 */
   --animate-modal-fade: modal-fade 0.2s ease-out both;
   --animate-modal-pop: modal-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* 닫힘(역방향) — 배경 페이드아웃 + 콘텐츠 살짝 축소 */
+  --animate-modal-fade-out: modal-fade-out 0.18s ease-in both;
+  --animate-modal-pop-out: modal-pop-out 0.18s cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 @keyframes fade-up {
@@ -169,6 +172,26 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes modal-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
   }
 }
 

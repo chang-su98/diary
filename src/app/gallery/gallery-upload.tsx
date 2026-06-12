@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
@@ -10,6 +10,8 @@ import type { GalleryPhoto } from "./types";
 
 // 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
 const UPLOAD_CONCURRENCY = 3;
+// 팝오버 메뉴 닫힘 애니메이션 시간(ms) — globals.css modal-pop-out(0.18s)과 맞춘다.
+const MENU_ANIM_MS = 180;
 
 // 업로드 → 생성된 사진 id + 표시 크기 반환
 async function uploadOne(
@@ -62,6 +64,34 @@ export function GalleryUpload({
     (s) => s.allIds.length > 0 && s.allIds.every((id) => s.selectedIds.has(id))
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  // 팝오버 닫힘 애니메이션: closing 동안 역방향 애니 재생 후 언마운트
+  const [menuClosing, setMenuClosing] = useState(false);
+  const menuTimer = useRef<number | null>(null);
+
+  function openMenu() {
+    if (menuTimer.current !== null) {
+      window.clearTimeout(menuTimer.current);
+      menuTimer.current = null;
+    }
+    setMenuClosing(false);
+    setMenuOpen(true);
+  }
+  function closeMenu() {
+    setMenuClosing(true);
+    menuTimer.current = window.setTimeout(() => {
+      setMenuOpen(false);
+      setMenuClosing(false);
+      menuTimer.current = null;
+    }, MENU_ANIM_MS);
+  }
+
+  // 언마운트 시 대기 중인 메뉴 닫힘 타이머 정리
+  useEffect(
+    () => () => {
+      if (menuTimer.current !== null) window.clearTimeout(menuTimer.current);
+    },
+    []
+  );
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -135,7 +165,7 @@ export function GalleryUpload({
       ) : (
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
+          onClick={() => (menuOpen ? closeMenu() : openMenu())}
           disabled={busy}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
@@ -166,18 +196,20 @@ export function GalleryUpload({
           <button
             type="button"
             aria-label="메뉴 닫기"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="fixed inset-0 z-[65] cursor-default"
           />
           <div
             role="menu"
-            className="absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 origin-top-right animate-modal-pop overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+            className={`absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 origin-top-right overflow-hidden rounded-xl border border-line bg-surface shadow-lg ${
+              menuClosing ? "animate-modal-pop-out" : "animate-modal-pop"
+            }`}
           >
             <button
               type="button"
               role="menuitem"
               onClick={() => {
-                setMenuOpen(false);
+                closeMenu();
                 fileRef.current?.click();
               }}
               className="flex w-full items-center px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
@@ -189,7 +221,7 @@ export function GalleryUpload({
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  closeMenu();
                   enterSelection();
                 }}
                 className="flex w-full items-center border-t border-line px-4 py-3 text-sm text-error transition-colors hover:bg-line/40"

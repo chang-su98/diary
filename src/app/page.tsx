@@ -186,9 +186,10 @@ export default async function Home() {
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {recent.map((t) => (
-              <div
+              <Link
                 key={t.id}
-                className="aspect-square overflow-hidden rounded-sm border border-line"
+                href="/gallery"
+                className="aspect-square overflow-hidden rounded-sm border border-line transition-opacity hover:opacity-90 active:opacity-80"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
                 <img
@@ -196,7 +197,7 @@ export default async function Home() {
                   alt=""
                   className="size-full object-cover"
                 />
-              </div>
+              </Link>
             ))}
           </div>
         </Reveal>
