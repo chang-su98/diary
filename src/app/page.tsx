@@ -9,6 +9,29 @@ import { Reveal } from "@/app/_components/reveal";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
+// 생일(DateTime?) → "M월 D일". 날짜만 의미 있으므로 UTC 기준 표기(타임존 이동 방지).
+const fmtBirthday = (d: Date | null) =>
+  d ? `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일` : null;
+
+// 인스타그램 아이콘(feather). stroke=currentColor로 부모 색을 따른다.
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.5" y2="6.5" />
+    </svg>
+  );
+}
 
 // 메인 — 청첩장 톤: 히어로 사진 → 두 사람 이름 → 처음 만난 날(월 달력) → 함께한 일수 → 최근 사진.
 export default async function Home() {
@@ -19,7 +42,12 @@ export default async function Home() {
   const [users, photos] = await Promise.all([
     prisma.user.findMany({
       orderBy: { id: "asc" },
-      select: { displayName: true, username: true },
+      select: {
+        displayName: true,
+        username: true,
+        avatar: true,
+        birthday: true,
+      },
     }),
     prisma.photo.findMany({
       orderBy: { id: "desc" },
@@ -28,10 +56,22 @@ export default async function Home() {
     }),
   ]);
 
-  // 표시 이름 + username(=인스타 아이디). 폐쇄형 2인 앱.
+  // 표시 이름 + username(=인스타 아이디) + 프로필. 폐쇄형 2인 앱.
   const people = users.length
-    ? users.map((u) => ({ name: u.displayName ?? u.username, username: u.username }))
-    : [{ name: session.username, username: session.username }];
+    ? users.map((u) => ({
+        name: u.displayName ?? u.username,
+        username: u.username,
+        avatar: u.avatar,
+        birthday: u.birthday,
+      }))
+    : [
+        {
+          name: session.username,
+          username: session.username,
+          avatar: null,
+          birthday: null,
+        },
+      ];
   const recent = photos; // 최신 6장 — 정사각 3×2 그리드
   const days = daysSince();
 
@@ -60,35 +100,6 @@ export default async function Home() {
               </span>
             ))}
           </h1>
-
-          {/* 두 사람 인스타그램(아이디 = username) */}
-          <div className="mt-4 flex items-center justify-center gap-5">
-            {people.map((p) => (
-              <a
-                key={p.username}
-                href={`https://instagram.com/${encodeURIComponent(p.username)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[0.7rem] tracking-wide text-text-muted transition-opacity hover:opacity-60"
-              >
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="size-4"
-                >
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" y1="6.5" x2="17.5" y2="6.5" />
-                </svg>
-                @{p.username}
-              </a>
-            ))}
-          </div>
         </div>
 
         <div>
@@ -99,6 +110,50 @@ export default async function Home() {
           <p className="mt-4 text-center text-[0.7rem] tracking-[0.26em] text-text-muted">
             함께한 지 {days}일
           </p>
+        </div>
+      </Reveal>
+
+      {/* ABOUT US — 두 사람 프로필 카드(아바타·이름·생일·인스타) */}
+      <Reveal>
+        <p className="mb-6 text-center text-sm tracking-[0.3em] text-text">
+          ABOUT US
+        </p>
+        <div className="flex justify-center gap-10">
+          {people.map((p) => (
+            <div
+              key={p.username}
+              className="flex flex-1 flex-col items-center gap-2 text-center"
+            >
+              <span className="size-16 overflow-hidden rounded-full border border-line bg-bg">
+                {p.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL 이미지
+                  <img
+                    src={p.avatar}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <span className="flex size-full items-center justify-center text-lg font-light text-text-muted">
+                    {p.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </span>
+              <p className="text-sm tracking-wide text-text">{p.name}</p>
+              {fmtBirthday(p.birthday) && (
+                <p className="text-[0.7rem] tracking-wide text-text-muted">
+                  {fmtBirthday(p.birthday)}
+                </p>
+              )}
+              <a
+                href={`https://instagram.com/${encodeURIComponent(p.username)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 flex items-center gap-1 text-[0.7rem] tracking-wide text-text-muted transition-opacity hover:opacity-60"
+              >
+                <InstagramIcon className="size-3.5" />@{p.username}
+              </a>
+            </div>
+          ))}
         </div>
       </Reveal>
 
