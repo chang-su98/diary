@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { SINCE, daysSince } from "@/lib/relationship";
 import { MeetCalendar } from "@/app/_components/meet-calendar";
+import { CoupleLine } from "@/app/_components/couple-line";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
@@ -29,25 +30,17 @@ export default async function Home() {
   const names = users.length
     ? users.map((u) => u.displayName ?? u.username)
     : [session.username];
-  const hero = photos[0] ?? null;
   const recent = photos; // 최신 6장 — 정사각 3×2 그리드
   const days = daysSince();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
-      {/* 히어로 — 최근 사진 1장 */}
-      {hero && (
-        <section>
-          <div className="h-40 w-full overflow-hidden rounded border border-line">
-            {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
-            <img
-              src={rawUrl(hero.id)}
-              alt=""
-              className="size-full object-cover"
-            />
-          </div>
-        </section>
-      )}
+      {/* 히어로 — 오리지널 라인 드로잉(머리 맞댄 두 사람 + 하트) */}
+      <section>
+        <div className="flex justify-center">
+          <CoupleLine className="h-44 w-auto text-text" />
+        </div>
+      </section>
 
       {/* 두 사람 이름 + 처음 만난 날 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
       <section className="space-y-7">
