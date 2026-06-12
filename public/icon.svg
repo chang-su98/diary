@@ -1,19 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Diary">
-  <!-- full-bleed background covers maskable safe zone -->
-  <rect width="512" height="512" fill="#0a0a0a"/>
-  <!-- notebook glyph centered within ~60% safe zone -->
-  <g transform="translate(146 120)">
-    <rect x="0" y="0" width="200" height="272" rx="20" fill="#fafafa"/>
-    <!-- spine -->
-    <rect x="0" y="0" width="34" height="272" rx="10" fill="#6366f1"/>
-    <!-- ruled lines -->
-    <g stroke="#d4d4d8" stroke-width="10" stroke-linecap="round">
-      <line x1="64" y1="74" x2="168" y2="74"/>
-      <line x1="64" y1="120" x2="168" y2="120"/>
-      <line x1="64" y1="166" x2="168" y2="166"/>
-      <line x1="64" y1="212" x2="136" y2="212"/>
-    </g>
-    <!-- bookmark -->
-    <path d="M150 0 h28 v64 l-14 -14 -14 14 z" fill="#6366f1"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Record">
+  <!-- 프로젝트 배경색(흰색) full-bleed — maskable 안전영역 커버 -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <!-- 워드마크 이니셜 R — 차콜(프로젝트 text 색), 중앙 정렬(안전영역 내) -->
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="central"
+    font-family="'Pretendard', system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="300" font-weight="400" letter-spacing="0.01em" fill="#1e1e1e">R</text>
 </svg>
