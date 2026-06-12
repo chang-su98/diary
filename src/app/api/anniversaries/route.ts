@@ -13,7 +13,7 @@ export async function GET() {
     }
     const anniversaries = await prisma.anniversary.findMany({
       orderBy: { date: "asc" },
-      include: { author: { select: { displayName: true } } },
+      include: { author: { select: { displayName: true, username: true } } },
     });
     return NextResponse.json({ anniversaries });
   } catch (error) {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         yearly,
         authorId, // 로그인 사용자를 작성자로 기록
       },
-      include: { author: { select: { displayName: true } } },
+      include: { author: { select: { displayName: true, username: true } } },
     });
     return NextResponse.json({ anniversary }, { status: 201 });
   } catch (error) {

@@ -11,8 +11,9 @@ export async function GET() {
     }
 
     const members = await prisma.user.findMany({
-      // 로그인 ID(username)는 노출하지 않는다 — 화면엔 displayName만 필요
-      select: { id: true, displayName: true, birthday: true },
+      // displayName이 비어 있으면 username(=아이디)으로 대체 표기하므로 username도 내려준다.
+      // (메인 ABOUT US에서도 이미 @username을 노출 중)
+      select: { id: true, username: true, displayName: true, birthday: true },
       orderBy: { id: "asc" },
     });
 

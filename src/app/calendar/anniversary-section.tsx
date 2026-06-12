@@ -9,7 +9,7 @@ type Anniversary = {
   title: string;
   date: string; // ISO 문자열
   yearly: boolean;
-  author: { displayName: string | null } | null;
+  author: { displayName: string | null; username: string } | null;
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -196,7 +196,7 @@ export function AnniversarySection() {
                     {a.title}
                     {a.yearly ? " · 매년" : ""}
                     {a.author
-                      ? ` · ${a.author.displayName ?? "이름 미설정"}`
+                      ? ` · ${a.author.displayName ?? a.author.username}`
                       : ""}
                   </span>
                   <span className="text-sm font-light tracking-wide">

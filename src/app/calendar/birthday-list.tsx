@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 type Member = {
   id: number;
+  username: string;
   displayName: string | null;
   birthday: string | null; // ISO 문자열 또는 null
 };
@@ -67,7 +68,7 @@ export function BirthdayList() {
   return (
     <ul className="flex flex-col pt-2">
       {members.map((m) => {
-        const name = m.displayName ?? "이름 미설정";
+        const name = m.displayName ?? m.username;
         const remaining =
           m.birthday !== null ? daysUntilBirthday(m.birthday, todayMs) : null;
         return (
