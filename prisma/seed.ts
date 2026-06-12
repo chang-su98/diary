@@ -13,9 +13,14 @@ if (!databaseUrl) {
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
 
-const accounts = [
+// yekorita는 chang과 동일한 비밀번호(SEED_CHANG_PASSWORD)를 사용한다.
+const accounts: {
+  username: string;
+  displayName: string | null;
+  passwordEnv: string;
+}[] = [
   { username: "kcs___chang", displayName: "chang", passwordEnv: "SEED_CHANG_PASSWORD" },
-  { username: "master", displayName: "master", passwordEnv: "SEED_MASTER_PASSWORD" },
+  { username: "yekorita", displayName: null, passwordEnv: "SEED_CHANG_PASSWORD" },
 ];
 
 async function main() {
