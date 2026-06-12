@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { SINCE } from "@/lib/relationship";
 import { useCountUp } from "./use-count-up";
 
-// 시작일 2026-03-30(1일째)의 다음 주년까지 남은 일수를 계산.
-const START_YEAR = 2026;
-const START_MONTH = 2; // 0-based: 3월
-const START_DAY = 30;
+// 시작일(처음 만난 날, 1일째)의 다음 주년까지 남은 일수를 계산 — 공유 상수(relationship).
+const START_YEAR = SINCE.year;
+const START_MONTH = SINCE.month - 1; // 0-based
+const START_DAY = SINCE.day;
 const DAY_MS = 86_400_000;
 
 function nextAnniversary() {

@@ -52,6 +52,9 @@ yarn-error.log*
 # 디버깅용 스크린샷 등 임시 자료
 /docs/bug/
 
+# superpowers 브레인스토밍 목업(로컬 시안)
+/.superpowers/
+
 # vercel
 .vercel
 
