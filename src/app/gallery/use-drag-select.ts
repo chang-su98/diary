@@ -31,6 +31,9 @@ export function useDragSelect({
   const engaged = useRef(false); // 임계치를 넘겨 실제 사각형 드래그 중인지
   const suppressClick = useRef(false); // 드래그 직후 따라오는 click(토글) 무시
   const lastClient = useRef({ x: 0, y: 0 }); // 최신 포인터(자동 스크롤 중 박스 갱신용)
+  // 드래그 모드 — 시작점 타일이 이미 선택돼 있으면 "deselect"(지나가는 타일 해제),
+  // 아니면 "select"(추가). iOS 사진 앱과 동일하게 한 드래그는 한 방향으로만 동작한다.
+  const mode = useRef<"select" | "deselect">("select");
 
   // 최신 타일 사각형을 ref에 동기화(리스너 클로저가 항상 최신값을 읽도록)
   const tilesRef = useRef(tiles);
@@ -71,11 +74,14 @@ export function useDragSelect({
       const w = Math.abs(curX - anchor.current.x);
       const h = Math.abs(curY - anchor.current.y);
 
-      // 기존 선택 ∪ 사각형에 겹치는 타일 → 한 번에 교체(타일은 바뀐 것만 리렌더)
+      // 기존 선택을 기준으로, 사각형에 겹치는 타일을 모드대로 칠한다(추가 또는 해제) →
+      // 한 번에 교체(타일은 바뀐 것만 리렌더)
       const next = new Set(base.current);
       for (const t of tilesRef.current) {
-        if (x < t.x + t.w && x + w > t.x && y < t.y + t.h && y + h > t.y)
-          next.add(t.id);
+        if (x < t.x + t.w && x + w > t.x && y < t.y + t.h && y + h > t.y) {
+          if (mode.current === "deselect") next.delete(t.id);
+          else next.add(t.id);
+        }
       }
       setSelection(next);
     };
@@ -124,6 +130,17 @@ export function useDragSelect({
         base.current = new Set(
           useGallerySelectionStore.getState().selectedIds
         );
+        // 시작점 타일의 선택 상태로 모드 결정 — 이미 선택된 사진에서 시작하면
+        // 해제 드래그, 그 외(미선택 타일·빈 공간)는 추가 드래그.
+        const a = anchor.current;
+        let startSelected = false;
+        for (const t of tilesRef.current) {
+          if (a.x >= t.x && a.x < t.x + t.w && a.y >= t.y && a.y < t.y + t.h) {
+            startSelected = base.current.has(t.id);
+            break;
+          }
+        }
+        mode.current = startSelected ? "deselect" : "select";
         engaged.current = true;
         suppressClick.current = true;
         lockOverscroll();
