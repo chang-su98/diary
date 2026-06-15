@@ -1,0 +1,78 @@
+// 선택한 사진을 기기에 저장한다.
+// 1순위: Web Share API(파일 공유) — 네이티브 "갤러리에 저장" 시트(안드로이드·iOS 모두).
+// 폴백: 브라우저 직접 다운로드(다운로드 폴더 → 갤럭시 갤러리의 '다운로드' 앨범).
+// 웹앱은 기기 갤러리에 소리 없이 쓸 수 없어, 위 두 경로가 사실상 최선이다.
+
+// 그리드·모달과 동일한 원본 서빙 URL(브라우저 캐시 공유)
+const rawUrl = (id: number) => `/api/photos/${id}/raw`;
+
+// navigator.share(files)는 lib.dom 버전에 따라 타입이 없을 수 있어 교차 타입으로 좁힌다
+// (use-standalone.ts의 IosNavigator와 동일 패턴 — any 회피).
+type ShareNavigator = Navigator & {
+  canShare?: (data?: { files?: File[] }) => boolean;
+  share?: (data?: { files?: File[] }) => Promise<void>;
+};
+
+function extFromType(type: string): string {
+  if (type.includes("png")) return "png";
+  if (type.includes("webp")) return "webp";
+  if (type.includes("gif")) return "gif";
+  if (type.includes("heic") || type.includes("heif")) return "heic";
+  return "jpg";
+}
+
+async function fetchAsFile(id: number): Promise<File> {
+  const res = await fetch(rawUrl(id));
+  if (!res.ok) throw new Error("사진을 불러오지 못했어요.");
+  const blob = await res.blob();
+  const type = blob.type || "image/jpeg";
+  return new File([blob], `record-${id}.${extFromType(type)}`, { type });
+}
+
+export type SaveOutcome = "shared" | "downloaded" | "cancelled";
+
+/**
+ * 선택한 사진 id들을 기기에 저장한다.
+ * - "shared": Web Share 시트로 저장(사용자가 갤러리 등 선택)
+ * - "downloaded": 직접 다운로드 폴백 실행
+ * - "cancelled": 공유 시트를 사용자가 닫음
+ */
+export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
+  const files = await Promise.all(ids.map(fetchAsFile));
+
+  // 1) Web Share API(파일) — 네이티브 "사진/갤러리에 저장" 시트
+  // iOS 홈화면 PWA(standalone)에서는 navigator.share는 동작하는데 canShare가
+  // undefined인 경우가 있다. canShare로만 막으면 iOS가 다운로드 폴백으로 빠져
+  // 파일앱에 한 장만 저장된다 → canShare는 함수일 때만 확인하고, 없으면 일단 시도.
+  const nav = navigator as ShareNavigator;
+  if (typeof nav.share === "function") {
+    const canShareFiles =
+      typeof nav.canShare === "function" ? nav.canShare({ files }) : true;
+    if (canShareFiles) {
+      try {
+        await nav.share({ files });
+        return "shared";
+      } catch (error) {
+        // 사용자가 시트를 닫음 → 실패가 아니라 취소
+        if (error instanceof DOMException && error.name === "AbortError")
+          return "cancelled";
+        // 그 외(NotAllowedError 등)는 아래 다운로드 폴백으로 진행
+        console.warn("[gallery] Web Share 실패 → 다운로드 폴백:", error);
+      }
+    }
+  }
+
+  // 2) 폴백 — 브라우저 직접 다운로드
+  for (const file of files) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 즉시 revoke하면 일부 브라우저가 다운로드를 취소 → 지연 해제
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+  return "downloaded";
+}

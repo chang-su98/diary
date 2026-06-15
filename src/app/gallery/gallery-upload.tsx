@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { fileToScaledImage } from "@/lib/image";
 import { useGalleryStore } from "@/lib/gallery-store";
 import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
+import { savePhotosToDevice } from "@/lib/save-photos";
 import type { GalleryPhoto } from "./types";
 
 // 동시 업로드 수 — 너무 크면 메모리/대역폭 부담, 1이면 느림. 3이 균형.
@@ -63,6 +64,10 @@ export function GalleryUpload({
   const allSelected = useGallerySelectionStore(
     (s) => s.allIds.length > 0 && s.allIds.every((id) => s.selectedIds.has(id))
   );
+  // 선택 사진을 기기에 저장(Web Share → 다운로드 폴백)
+  const selectedCount = useGallerySelectionStore((s) => s.selectedIds.size);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   // 팝오버 닫힘 애니메이션: closing 동안 역방향 애니 재생 후 언마운트
   const [menuClosing, setMenuClosing] = useState(false);
@@ -146,6 +151,26 @@ export function GalleryUpload({
     if (uploaded.length > 0 && !hasPhotos) router.refresh();
   }
 
+  async function onSaveSelected() {
+    const ids = Array.from(useGallerySelectionStore.getState().selectedIds);
+    if (ids.length === 0 || saving) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const outcome = await savePhotosToDevice(ids);
+      // shared·cancelled는 OS 공유 시트가 피드백을 주므로 토스트 생략
+      if (outcome === "downloaded") {
+        setNotice("기기에 저장했어요.");
+        window.setTimeout(() => setNotice(null), 2500);
+      }
+    } catch (error) {
+      console.warn("[gallery] 사진 저장 실패:", error);
+      setMsg("저장에 실패했어요.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // 0~100(%). total이 0이면 0으로 안전 처리.
   const pct =
     progress.total > 0
@@ -154,6 +179,32 @@ export function GalleryUpload({
 
   return (
     <>
+      {/* 선택 모드: 타이틀 왼쪽에 '기기에 저장' 다운로드 버튼(오른쪽엔 전체선택/+ 메뉴) */}
+      {selecting && (
+        <button
+          type="button"
+          onClick={onSaveSelected}
+          disabled={saving || selectedCount === 0}
+          aria-label="선택한 사진 기기에 저장"
+          className="absolute left-6 top-[calc(2rem+var(--safe-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-30"
+        >
+          <span
+            aria-hidden
+            className="block size-6 bg-text"
+            style={{
+              maskImage: "url(/asset/images/contents/download.svg)",
+              WebkitMaskImage: "url(/asset/images/contents/download.svg)",
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskPosition: "center",
+              maskSize: "contain",
+              WebkitMaskSize: "contain",
+            }}
+          />
+        </button>
+      )}
+
       {selecting ? (
         <button
           type="button"
@@ -212,8 +263,21 @@ export function GalleryUpload({
                 closeMenu();
                 fileRef.current?.click();
               }}
-              className="flex w-full items-center px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
+              className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
             >
+              {/* 하단 탭바의 갤러리 아이콘과 동일(인라인 SVG) */}
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-[18px]"
+              >
+                <path d="M5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21ZM5 21L16 10L21 15M10 8.5C10 9.32843 9.32843 10 8.5 10C7.67157 10 7 9.32843 7 8.5C7 7.67157 7.67157 7 8.5 7C9.32843 7 10 7.67157 10 8.5Z" />
+              </svg>
               사진 추가
             </button>
             {hasPhotos && (
@@ -224,9 +288,23 @@ export function GalleryUpload({
                   closeMenu();
                   enterSelection();
                 }}
-                className="flex w-full items-center border-t border-line px-4 py-3 text-sm text-error transition-colors hover:bg-line/40"
+                className="flex w-full items-center gap-2 border-t border-line px-4 py-3 text-sm text-text transition-colors hover:bg-line/40"
               >
-                사진 삭제
+                {/* check-circle */}
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-[18px]"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                사진 선택
               </button>
             )}
           </div>
@@ -251,6 +329,18 @@ export function GalleryUpload({
             className="fixed left-1/2 top-[calc(1rem+var(--safe-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
           >
             {msg}
+          </p>,
+          document.body
+        )}
+
+      {/* 저장 완료(다운로드 폴백) 안내 — 중립 토스트(공유 시트는 OS가 피드백) */}
+      {notice &&
+        createPortal(
+          <p
+            role="status"
+            className="fixed left-1/2 top-[calc(1rem+var(--safe-top))] z-[80] -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg"
+          >
+            {notice}
           </p>,
           document.body
         )}
