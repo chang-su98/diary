@@ -369,11 +369,16 @@ export function AnniversarySection() {
     } else if (!a.endDate) {
       if (s.y === view.y && s.m === view.m) markDay(s.d, a);
     } else {
-      // 기간(1회성) — 시작~종료의 각 날짜 중 표시 중인 달에 속하는 날 마킹
-      for (let t = localMs(a.date); t <= localMs(a.endDate); t += DAY_MS) {
-        const dt = new Date(t);
+      // 기간(1회성) — 시작~종료의 각 날짜 중 표시 중인 달에 속하는 날 마킹.
+      // ms 누적 대신 setDate로 순회(DST 보정) + 비정상 데이터 폭주 가드(~5년).
+      const end = localMs(a.endDate);
+      const dt = new Date(localMs(a.date));
+      let guard = 0;
+      while (dt.getTime() <= end && guard < 2000) {
         if (dt.getFullYear() === view.y && dt.getMonth() === view.m)
           markDay(dt.getDate(), a);
+        dt.setDate(dt.getDate() + 1);
+        guard++;
       }
     }
   }

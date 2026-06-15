@@ -1,44 +1,82 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { getSession } from "@/lib/session";
 
 // 한국천문연구원 특일정보 — getRestDeInfo(법정공휴일 + 대체공휴일 반환).
-// 키(DATA_GO_KR_KEY)는 서버에서만 사용하고, 클라이언트엔 'YYYY-MM-DD → 공휴일명' 맵만 내려준다.
+// 키(DATA_GO_KR_KEY)는 서버에서만 쓰고, 클라이언트엔 'YYYY-MM-DD → 공휴일명' 맵만 내려준다.
 const BASE =
   "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";
 
-type RestItem = { locdate: number | string; dateName: string; isHoliday?: string };
+type HolidayMap = Record<string, string>;
 
-// 공휴일은 연 단위로 거의 안 바뀌므로 길게 캐시(30일).
-const REVALIDATE_SEC = 60 * 60 * 24 * 30;
+// 외부 응답 항목 — as 단언 대신 Zod로 검증(rules/api.md)
+const restItem = z.object({
+  locdate: z.union([z.number(), z.string()]),
+  dateName: z.string(),
+  isHoliday: z.string().optional(),
+});
 
-// 한 달치 특일정보를 받아 [locdate, dateName] 목록으로 반환(실패 시 빈 배열).
-async function fetchMonth(
-  key: string,
-  year: number,
-  month: number
-): Promise<RestItem[]> {
+// 서버 메모리 캐시(연 단위). Next fetch Data Cache는 URL(=serviceKey 포함)을 캐시 키/
+// 저장에 남기므로 사용하지 않고, 여기서 year만 키로 캐싱한다(키가 어디에도 잔존 안 함).
+const YEAR_TTL = 30 * 24 * 60 * 60 * 1000; // 정상: 30일
+const EMPTY_TTL = 24 * 60 * 60 * 1000; // 빈 결과(일시 실패·미고시 연도): 1일만
+const cache = new Map<number, { exp: number; map: HolidayMap }>();
+
+// 해당 연도 공휴일 맵을 외부 API에서 만든다. solYear만으로 연 전체가 1회에 온다.
+// 실패(키 오류·네트워크·파싱) 시 빈 맵.
+async function buildYearMap(key: string, year: number): Promise<HolidayMap> {
   const url =
     `${BASE}?serviceKey=${encodeURIComponent(key)}` +
-    `&solYear=${year}&solMonth=${String(month).padStart(2, "0")}` +
-    `&numOfRows=50&_type=json`;
+    `&solYear=${year}&numOfRows=100&_type=json`;
+  let json: unknown;
   try {
-    const res = await fetch(url, { next: { revalidate: REVALIDATE_SEC } });
+    // Next Data Cache에 URL(키)이 남지 않도록 no-store. 캐싱은 위 메모리 캐시가 담당.
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
-      console.warn(`[GET /api/holidays] 외부 응답 실패: ${res.status} (${year}-${month})`);
-      return [];
+      console.warn(`[GET /api/holidays] 외부 응답 실패: ${res.status} (${year})`);
+      return {};
     }
-    const json: unknown = await res.json();
-    const items = (
-      json as { response?: { body?: { items?: { item?: unknown } } } }
-    )?.response?.body?.items?.item;
-    if (Array.isArray(items)) return items as RestItem[];
-    if (items && typeof items === "object") return [items as RestItem];
-    return [];
+    json = await res.json();
   } catch (error) {
-    // 키 오류·JSON 파싱 실패(에러는 XML로 옴) 등 — 해당 달만 건너뛴다.
-    console.warn(`[GET /api/holidays] 파싱 실패 (${year}-${month}):`, error);
-    return [];
+    // undici 에러의 cause/스택에 요청 URL(키 평문)이 담길 수 있어 메시지만, 키는 마스킹.
+    // 원본·URL 인코딩본 둘 다 치환(키에 +,/,= 가 있으면 인코딩 형태로 들어올 수 있음).
+    const msg = error instanceof Error ? error.message : String(error);
+    const masked = msg
+      .split(key)
+      .join("***")
+      .split(encodeURIComponent(key))
+      .join("***");
+    console.warn(`[GET /api/holidays] 요청 실패 (${year}):`, masked);
+    return {};
   }
+
+  const raw = (json as { response?: { body?: { items?: { item?: unknown } } } })
+    ?.response?.body?.items?.item;
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const map: HolidayMap = {};
+  for (const it of list) {
+    const parsed = restItem.safeParse(it);
+    if (!parsed.success) continue;
+    const { locdate, dateName, isHoliday } = parsed.data;
+    if (isHoliday && isHoliday !== "Y") continue; // 공휴일만(방어적)
+    const s = String(locdate); // YYYYMMDD
+    if (s.length !== 8) continue;
+    const date = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+    const cur = map[date];
+    if (!cur) map[date] = dateName;
+    else if (!cur.split(", ").includes(dateName)) map[date] = `${cur}, ${dateName}`;
+  }
+  return map;
+}
+
+async function getYearMap(key: string, year: number): Promise<HolidayMap> {
+  const hit = cache.get(year);
+  if (hit && hit.exp > Date.now()) return hit.map;
+  const map = await buildYearMap(key, year);
+  const ttl = Object.keys(map).length > 0 ? YEAR_TTL : EMPTY_TTL;
+  cache.set(year, { exp: Date.now() + ttl, map });
+  return map;
 }
 
 export async function GET(req: NextRequest) {
@@ -56,27 +94,13 @@ export async function GET(req: NextRequest) {
     const key = process.env.DATA_GO_KR_KEY;
     if (!key) {
       console.warn("[GET /api/holidays] DATA_GO_KR_KEY 미설정 — 빈 맵 반환");
-      return NextResponse.json({ holidays: {} });
+      return NextResponse.json(
+        { holidays: {} },
+        { headers: { "Cache-Control": "no-store" } }
+      );
     }
 
-    // 월별 12회 호출(병렬). getRestDeInfo는 solMonth가 필요해 달 단위로 받는다.
-    const months = Array.from({ length: 12 }, (_, i) => i + 1);
-    const perMonth = await Promise.all(
-      months.map((mm) => fetchMonth(key, year, mm))
-    );
-
-    const holidays: Record<string, string> = {};
-    for (const items of perMonth) {
-      for (const it of items) {
-        const s = String(it.locdate); // YYYYMMDD
-        if (s.length !== 8) continue;
-        const date = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-        holidays[date] = holidays[date]
-          ? `${holidays[date]}, ${it.dateName}`
-          : it.dateName;
-      }
-    }
-
+    const holidays = await getYearMap(key, year);
     return NextResponse.json({ holidays });
   } catch (error) {
     console.error("[GET /api/holidays]", error);

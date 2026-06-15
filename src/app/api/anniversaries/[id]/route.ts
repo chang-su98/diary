@@ -47,6 +47,45 @@ export async function PATCH(
     }
 
     const p = parsed.data;
+
+    // cross-field 검증(종료일>=시작일, 매년반복+기간 배제)은 부분 수정 시 한쪽 필드가
+    // 빠지면 우회된다 → 날짜·종료일·매년반복 중 하나라도 바뀌면 기존 값과 병합해 재검증.
+    if (p.date !== undefined || p.endDate !== undefined || p.yearly !== undefined) {
+      const cur = await prisma.anniversary.findUnique({
+        where: { id },
+        select: { date: true, endDate: true, yearly: true },
+      });
+      if (!cur) {
+        return NextResponse.json(
+          { error: "기념일을 찾을 수 없습니다." },
+          { status: 404 }
+        );
+      }
+      const toStr = (d: Date) => d.toISOString().slice(0, 10);
+      const mDate = p.date ?? toStr(cur.date);
+      const mEnd =
+        p.endDate !== undefined
+          ? p.endDate
+          : cur.endDate
+            ? toStr(cur.endDate)
+            : null;
+      const mYearly = p.yearly ?? cur.yearly;
+      if (mEnd != null) {
+        if (mYearly) {
+          return NextResponse.json(
+            { error: "매년 반복 일정은 기간을 설정할 수 없습니다." },
+            { status: 400 }
+          );
+        }
+        if (mEnd < mDate) {
+          return NextResponse.json(
+            { error: "종료일은 시작일보다 빠를 수 없습니다." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const data: {
       title?: string;
       date?: Date;
