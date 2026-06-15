@@ -3,6 +3,7 @@ import { BirthdayList } from "./birthday-list";
 import { CalendarSwiper } from "./calendar-swiper";
 import { DayCounter } from "./day-counter";
 import { NextAnniversary } from "./next-anniversary";
+import { YearlyAnniversaries } from "./yearly-anniversaries";
 
 export default function CalendarPage() {
   // 슬라이드 1: 누적 일수 + 회원 생일 / 슬라이드 2: 일정
@@ -20,6 +21,8 @@ export default function CalendarPage() {
         <NextAnniversary className="text-[0.7rem] tracking-[0.3em] text-text-muted" />
       </section>
       <BirthdayList />
+      {/* 매년 반복 일정도 생일과 같은 연례 D-day라 그 아래에 이어서 표시 */}
+      <YearlyAnniversaries />
     </div>,
     <AnniversarySection key="schedule" />,
   ];
