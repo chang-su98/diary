@@ -179,7 +179,15 @@ export function GalleryGrid({
     setSelected(photo);
     // 모달 열림을 history 항목으로 쌓는다 → 물리 뒤로가기(안드로이드 홈바)가
     // 이전 페이지로 가지 않고 이 항목을 pop하며 모달만 닫히게 한다(popstate 핸들러).
-    window.history.pushState({ galleryModal: true }, "");
+    // 이미 modal 항목이 top이면(닫힘 애니 중 재오픈 등) 재push하지 않아 history 누적을
+    // 막는다. 모달은 전체화면 오버레이(z-60 > 탭바 z-40)라 열린 동안 탭 이동이 막히고
+    // body 스크롤도 잠겨 일반 UI로는 뒤로가기 외 이탈 경로가 없다. 다만 프로그램적
+    // 라우팅(router.push)을 모달 열린 채 호출하면 이 항목 1개가 스택에 남을 수 있다 —
+    // 현재 그런 호출 경로는 없고, 발생해도 뒤로가기 1회가 삼켜지는 정도라 허용한다.
+    const histState = window.history.state as { galleryModal?: boolean } | null;
+    if (!histState?.galleryModal) {
+      window.history.pushState({ galleryModal: true }, "");
+    }
   }, []);
 
   // 닫힘 애니메이션 실행 후 언마운트. 실제 닫기는 popstate(뒤로가기) 경로로만 일어난다.
@@ -278,6 +286,10 @@ function PhotoMasonry({
   const [photos, setPhotos] = useState(initialPhotos);
   const [cursor, setCursor] = useState(initialCursor);
   const loadingRef = useRef(false); // 동시 fetch 방지
+  const retryRef = useRef(0); // loadMore 일시 오류 재시도 횟수(백오프)
+  const retryTimer = useRef<number | null>(null);
+  // 재시도 타이머가 자기참조 없이 항상 최신 loadMore를 호출하도록 ref로 우회
+  const loadMoreRef = useRef<(() => void) | null>(null);
 
   // 컨테이너 실제 너비(열 폭 계산용). 0이면 아직 미측정 → SSR/첫 프레임 CSS columns 폴백.
   const containerRef = useRef<HTMLDivElement>(null);
@@ -330,16 +342,39 @@ function PhotoMasonry({
     loadingRef.current = true;
     try {
       const res = await fetch(`/api/photos?cursor=${cursor}`);
-      if (!res.ok) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const page = (await res.json()) as PhotosPage;
       setPhotos((prev) => [...prev, ...page.photos]);
       setCursor(page.nextCursor);
+      retryRef.current = 0; // 성공 → 재시도 카운트 리셋
     } catch (error) {
       console.warn("[gallery] 다음 페이지 로드 실패:", error);
+      // 센티넬이 계속 교차 상태면 IntersectionObserver가 재발화하지 않아 영구
+      // 중단될 수 있다 → 일시 오류를 백오프로 제한 재시도(최대 3회)해 자가복구.
+      if (retryRef.current < 3) {
+        retryRef.current += 1;
+        // 드물게 IO 트리거와 재시도가 겹쳐 이전 타이머가 유실되지 않도록 먼저 정리(N-4)
+        if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+        retryTimer.current = window.setTimeout(
+          () => loadMoreRef.current?.(),
+          1500 * retryRef.current
+        );
+      }
     } finally {
       loadingRef.current = false;
     }
   }, [cursor]);
+
+  // 재시도 타이머가 최신 loadMore를 호출하도록 동기화 + 언마운트 시 타이머 정리
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  }, [loadMore]);
+  useEffect(
+    () => () => {
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+    },
+    []
+  );
 
   // 바닥 센티넬이 뷰포트 근처에 들어오면 다음 페이지 로드(뷰포트 미충족 시 연속 로드).
   const sentinelRef = useRef<HTMLDivElement>(null);

@@ -29,6 +29,25 @@ async function fetchAsFile(id: number): Promise<File> {
   return new File([blob], `record-${id}.${extFromType(type)}`, { type });
 }
 
+// 동시 fetch 동시성 상한 — 전량 동시 다운로드 시 모바일 메모리 급증을 막는다.
+const FETCH_CONCURRENCY = 4;
+
+// id 목록을 동시성 제한 워커 풀로 File 배열에 받는다(원래 순서 보존).
+async function fetchFiles(ids: number[]): Promise<File[]> {
+  const out = new Array<File>(ids.length);
+  let next = 0;
+  async function worker() {
+    while (next < ids.length) {
+      const i = next++;
+      out[i] = await fetchAsFile(ids[i]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(FETCH_CONCURRENCY, ids.length) }, worker)
+  );
+  return out;
+}
+
 export type SaveOutcome = "shared" | "downloaded" | "cancelled";
 
 /**
@@ -38,7 +57,10 @@ export type SaveOutcome = "shared" | "downloaded" | "cancelled";
  * - "cancelled": 공유 시트를 사용자가 닫음
  */
 export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
-  const files = await Promise.all(ids.map(fetchAsFile));
+  // 동시성 제한으로 받아 메모리 스파이크 완화(공유는 전체 File을 함께 넘겨야 함).
+  // 참고(N-2): fetch가 길어지면(캐시 미스) iOS의 user activation이 만료돼 nav.share가
+  // 거부될 수 있다. 그리드·모달에서 이미 본 사진은 캐시 적중이라 보통 즉시 resolve된다.
+  const files = await fetchFiles(ids);
 
   // 1) Web Share API(파일) — 네이티브 "사진/갤러리에 저장" 시트
   // iOS 홈화면 PWA(standalone)에서는 navigator.share는 동작하는데 canShare가
@@ -62,8 +84,10 @@ export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
     }
   }
 
-  // 2) 폴백 — 브라우저 직접 다운로드
-  for (const file of files) {
+  // 2) 폴백 — 브라우저 직접 다운로드. 모바일은 보통 제스처당 1건만 허용하므로
+  //    각 클릭 사이에 짧은 지연을 둬 데스크톱 다중 다운로드 차단을 완화한다.
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
     const url = URL.createObjectURL(file);
     const a = document.createElement("a");
     a.href = url;
@@ -73,6 +97,8 @@ export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
     a.remove();
     // 즉시 revoke하면 일부 브라우저가 다운로드를 취소 → 지연 해제
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    if (i < files.length - 1)
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
   }
   return "downloaded";
 }

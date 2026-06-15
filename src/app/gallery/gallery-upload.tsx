@@ -155,17 +155,23 @@ export function GalleryUpload({
     const ids = Array.from(useGallerySelectionStore.getState().selectedIds);
     if (ids.length === 0 || saving) return;
     setSaving(true);
-    setMsg(null);
+    // 저장 피드백은 notice 채널만 사용 — 업로드 에러(msg)는 건드리지 않는다(N-3).
     try {
       const outcome = await savePhotosToDevice(ids);
-      // shared·cancelled는 OS 공유 시트가 피드백을 주므로 토스트 생략
+      // 사용자가 공유 시트를 닫음 → 선택을 유지(재시도 가능)
+      if (outcome === "cancelled") return;
+      // shared는 OS 시트가 피드백을 주므로 토스트 생략, downloaded만 안내
       if (outcome === "downloaded") {
         setNotice("기기에 저장했어요.");
         window.setTimeout(() => setNotice(null), 2500);
       }
+      // 저장 완료 → 선택 모드 종료(처음 상태로 복귀)
+      useGallerySelectionStore.getState().exit();
     } catch (error) {
       console.warn("[gallery] 사진 저장 실패:", error);
-      setMsg("저장에 실패했어요.");
+      // 업로드용 msg 채널과 분리 — 저장 피드백은 notice로(업로드 진행 중 겹쳐도 안전)
+      setNotice("저장에 실패했어요.");
+      window.setTimeout(() => setNotice(null), 2500);
     } finally {
       setSaving(false);
     }
