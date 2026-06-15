@@ -233,6 +233,9 @@ export function AnniversarySection() {
   // 연/월 선택 팝오버("year" | "month" | null)
   const [picker, setPicker] = useState<"year" | "month" | null>(null);
   const yearListRef = useRef<HTMLDivElement>(null);
+  // 날짜 그리드 좌우 스와이프(달 이동)용 — 시작 좌표 + 이번 제스처가 스와이프였는지
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const didSwipe = useRef(false);
   // 연도 팝오버가 열리면 현재 연도를 목록 가운데로 스크롤
   useEffect(() => {
     if (picker !== "year") return;
@@ -425,7 +428,41 @@ export function AnniversarySection() {
       return { y: v.y, m };
     });
   }
+  // ── 날짜 그리드 좌우 스와이프 → 달 이동 ───────────────
+  // 부모(CalendarSwiper)도 가로 scroll-snap이라, 그리드에는 touch-action: pan-y를
+  // 줘서 가로 제스처가 페이지 슬라이드로 전파되지 않게 막는다(달 이동 우선).
+  function onGridTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+    didSwipe.current = false;
+  }
+  function onGridTouchMove(e: React.TouchEvent) {
+    const start = touchStart.current;
+    if (!start) return;
+    const t = e.touches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // 가로로 충분히 움직였으면 스와이프로 간주 → 날짜 탭(click) 무시용 플래그
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) didSwipe.current = true;
+  }
+  function onGridTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // 가로 우세 + 임계치 이상일 때만 달 이동(왼쪽으로 밀면 다음 달)
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      // touchend 핸들러 안에서 곧바로 remount하면 일부 모바일이 제스처 진행 중으로
+      // 보고 슬라이드 애니메이션 첫 프레임을 스킵한다 → 다음 프레임으로 미뤄 재생 보장
+      const delta = dx < 0 ? 1 : -1;
+      requestAnimationFrame(() => shiftMonth(delta));
+    }
+  }
+
   function pickDay(d: number) {
+    if (didSwipe.current) return; // 스와이프로 끝난 제스처면 날짜 선택 무시
     setSelected((cur) =>
       cur && cur.y === view.y && cur.m === view.m && cur.d === d
         ? null
@@ -612,7 +649,13 @@ export function AnniversarySection() {
         {/* 날짜 그리드 — 달이 바뀌면 key가 바뀌어 방향대로 슬라이드+페이드 재생.
             overflow-hidden: 슬라이드(translateX)가 가로로 넘쳐 스크롤 생기는 것 방지
             (팝오버는 이 래퍼 밖에 있어 잘리지 않음) */}
-        <div className="overflow-hidden">
+        <div
+          className="overflow-hidden"
+          style={{ touchAction: "pan-y" }}
+          onTouchStart={onGridTouchStart}
+          onTouchMove={onGridTouchMove}
+          onTouchEnd={onGridTouchEnd}
+        >
           <div
             key={view.y * 12 + view.m}
             className={`grid grid-cols-7 text-center ${
@@ -810,12 +853,20 @@ export function AnniversarySection() {
                   label="연일"
                   onClick={() => {
                     const nv = !isRange;
-                    setIsRange(nv);
-                    if (nv) setYearly(false);
-                    else setEndDate("");
+                    // iOS는 탭(터치)으로 촉발된 CSS 트랜지션/애니메이션의 첫 프레임을
+                    // 스킵한다(스와이프 달 이동과 동일 이슈) → 다음 프레임으로 미뤄
+                    // 매년반복 페이드아웃 + 날짜 영역 페이드가 재생되게 함
+                    requestAnimationFrame(() => {
+                      setIsRange(nv);
+                      if (nv) setYearly(false);
+                      else setEndDate("");
+                    });
                   }}
                 />
+                {/* iOS WebKit은 합성 레이어가 없으면 opacity 트랜지션을 부드럽게
+                    재생하지 않고 즉시 점프시킨다 → translateZ(0)+will-change로 레이어 승격 */}
                 <div
+                  style={{ transform: "translateZ(0)", willChange: "opacity" }}
                   className={`transition-opacity duration-200 ${
                     isRange ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
