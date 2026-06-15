@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "vaul";
-import { holidayName } from "@/lib/holidays-kr";
+import { useHolidays, holidayKey } from "@/lib/use-holidays";
 
 type Anniversary = {
   id: number;
@@ -253,6 +253,10 @@ export function AnniversarySection() {
     queryFn: fetchAnniversaries,
   });
 
+  // 공휴일(천문연 API) — 표시 중인 연도 + 선택 날짜 연도(다를 수 있음). 연도별 캐시.
+  const viewHolidays = useHolidays(view.y);
+  const selectedHolidays = useHolidays(selected ? selected.y : view.y);
+
   // 폼 상태
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -434,7 +438,7 @@ export function AnniversarySection() {
 
   // 선택한 날짜가 공휴일이면 이름(예: "추석") 표시
   const selectedHoliday = selected
-    ? holidayName(selected.y, selected.m, selected.d)
+    ? selectedHolidays[holidayKey(selected.y, selected.m, selected.d)] ?? null
     : null;
   // 선택한 날짜가 오늘인지 — 헤더에 (TODAY) 표시
   const isSelectedToday =
@@ -623,7 +627,8 @@ export function AnniversarySection() {
               selected?.d === d;
             const has = monthItemsByDay.has(d);
             // 공휴일(빨간날) 또는 일요일이면 빨간 숫자
-            const isRed = weekday === 0 || holidayName(view.y, view.m, d) !== null;
+            const isRed =
+              weekday === 0 || viewHolidays[holidayKey(view.y, view.m, d)] != null;
             return (
               <button
                 key={d}
