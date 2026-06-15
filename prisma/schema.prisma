@@ -36,7 +36,8 @@ model User {
 model Anniversary {
   id        Int      @id @default(autoincrement())
   title     String   @db.VarChar(100) // 일정 제목
-  date      DateTime // 일정 날짜 (UTC 자정 저장)
+  date      DateTime // 일정(시작) 날짜 (UTC 자정 저장)
+  endDate   DateTime? // 기간 일정 종료일(UTC 자정). 없으면 단일일. 1회성에서만 사용
   yearly    Boolean  @default(true) // 매년 반복 여부
   authorId  Int? // 작성자(User) — 삭제 시 null
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)

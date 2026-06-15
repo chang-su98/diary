@@ -47,9 +47,16 @@ export async function PATCH(
     }
 
     const p = parsed.data;
-    const data: { title?: string; date?: Date; yearly?: boolean } = {};
+    const data: {
+      title?: string;
+      date?: Date;
+      endDate?: Date | null;
+      yearly?: boolean;
+    } = {};
     if (p.title !== undefined) data.title = p.title;
     if (p.date !== undefined) data.date = new Date(`${p.date}T00:00:00Z`);
+    if (p.endDate !== undefined)
+      data.endDate = p.endDate ? new Date(`${p.endDate}T00:00:00Z`) : null;
     if (p.yearly !== undefined) data.yearly = p.yearly;
 
     if (Object.keys(data).length === 0) {

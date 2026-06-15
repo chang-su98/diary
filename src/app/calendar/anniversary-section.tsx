@@ -8,7 +8,8 @@ import { holidayName } from "@/lib/holidays-kr";
 type Anniversary = {
   id: number;
   title: string;
-  date: string; // ISO 문자열
+  date: string; // ISO 문자열(시작일)
+  endDate: string | null; // 기간 종료일(없으면 단일일)
   yearly: boolean;
   author: { displayName: string | null; username: string } | null;
 };
@@ -90,6 +91,132 @@ function nextOccurrenceMs(
   return new Date(y, m, d).getTime();
 }
 
+// 로컬 자정 ms — UTC 저장 날짜의 연/월/일을 로컬 날짜로 취급(비교·계산용)
+function localMs(iso: string): number {
+  const { y, m, d } = ymdFromIso(iso);
+  return new Date(y, m, d).getTime();
+}
+
+// 기간 일정의 "N박 N+1일" 라벨. 단일일/역전이면 null.
+function rangeLabel(a: Anniversary): string | null {
+  if (!a.endDate) return null;
+  const nights = Math.round((localMs(a.endDate) - localMs(a.date)) / DAY_MS);
+  return nights > 0 ? `${nights}박 ${nights + 1}일` : null;
+}
+
+// 리스트 날짜 표기 — 기간이면 "시작 ~ 종료"(같은 해면 종료는 월-일만)
+function formatRange(a: Anniversary): string {
+  if (!a.endDate) return formatDate(a.date);
+  const s = ymdFromIso(a.date);
+  const e = ymdFromIso(a.endDate);
+  const endStr =
+    s.y === e.y
+      ? `${String(e.m + 1).padStart(2, "0")}-${String(e.d).padStart(2, "0")}(${WEEKDAYS[new Date(a.endDate).getUTCDay()]})`
+      : formatDate(a.endDate);
+  return `${formatDate(a.date)} ~ ${endStr}`;
+}
+
+// D-day 표기 — 기간 중(오늘이 시작~종료 사이)이면 "진행 중", 아니면 시작일 기준 D-day
+function ddayDisplay(a: Anniversary, todayMs: number): string {
+  if (a.endDate && todayMs >= localMs(a.date) && todayMs <= localMs(a.endDate)) {
+    return "진행 중";
+  }
+  return formatDday(a.date, a.yearly, todayMs);
+}
+
+// 커스텀 날짜 입력 — 브라우저별 date UI 편차 대응(빈값 placeholder + 아이콘)
+function DateField({
+  value,
+  onChange,
+  min,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  min?: string;
+}) {
+  return (
+    <div className="relative w-full min-w-0">
+      <input
+        type="date"
+        value={value}
+        min={min}
+        onChange={(e) => onChange(e.target.value)}
+        onClick={(e) => {
+          try {
+            e.currentTarget.showPicker?.();
+          } catch (err) {
+            console.debug("[일정] showPicker 예외:", err);
+          }
+        }}
+        className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
+          value ? "" : "text-transparent"
+        }`}
+      />
+      {!value && (
+        <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-text-muted">
+          YYYY / MM / DD
+        </span>
+      )}
+      <svg
+        aria-hidden
+        width={18}
+        height={18}
+        viewBox="0 0 24 24"
+        fill="none"
+        className="pointer-events-none absolute right-0 top-1/2 size-[18px] -translate-y-1/2 text-text-muted"
+      >
+        <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M3 9.5H21M8 3V6M16 3V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+// 체크박스 한 줄(박스 + 라벨) — 연일/매년 반복 공용
+function CheckButton({
+  checked,
+  onClick,
+  label,
+}: {
+  checked: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex select-none items-center gap-2.5 text-sm tracking-wide text-text-muted"
+    >
+      <span
+        className={`relative inline-flex size-[18px] items-center justify-center rounded-md border transition-all ${
+          checked ? "border-primary bg-primary" : "border-line bg-surface"
+        }`}
+      >
+        <svg
+          viewBox="0 0 14 14"
+          fill="none"
+          aria-hidden
+          width={14}
+          height={14}
+          className={`size-3.5 shrink-0 text-white transition-opacity ${
+            checked ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <path
+            d="M3 7.5L6 10.5L11 4"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      {label}
+    </button>
+  );
+}
+
 export function AnniversarySection() {
   const qc = useQueryClient();
   const [todayMs] = useState(() => {
@@ -131,7 +258,9 @@ export function AnniversarySection() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
-  const [yearly, setYearly] = useState(true);
+  const [endDate, setEndDate] = useState(""); // 기간 종료일(비우면 단일일)
+  const [isRange, setIsRange] = useState(false); // 연일(기간) 일정 여부
+  const [yearly, setYearly] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   function openAdd() {
@@ -145,7 +274,9 @@ export function AnniversarySection() {
           ).padStart(2, "0")}`
         : ""
     );
-    setYearly(true);
+    setEndDate("");
+    setIsRange(false);
+    setYearly(false);
     setErr(null);
     setOpen(true);
   }
@@ -154,6 +285,8 @@ export function AnniversarySection() {
     setEditingId(a.id);
     setTitle(a.title);
     setDate(a.date.slice(0, 10));
+    setEndDate(a.endDate ? a.endDate.slice(0, 10) : "");
+    setIsRange(a.endDate !== null);
     setYearly(a.yearly);
     setErr(null);
     setOpen(true);
@@ -161,7 +294,14 @@ export function AnniversarySection() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { title, date, yearly };
+      if (isRange && !endDate) throw new Error("종료일을 입력하세요.");
+      // 연일이면 기간(endDate) + 매년 반복 false, 아니면 단일일.
+      const payload = {
+        title,
+        date,
+        endDate: isRange ? endDate || null : null,
+        yearly: isRange ? false : yearly,
+      };
       const res =
         editingId === null
           ? await fetch("/api/anniversaries", {
@@ -213,13 +353,24 @@ export function AnniversarySection() {
   // 표시 중인 달에 일정이 있는 날 → 날짜별 항목(마커 + 선택 보기). 매년 반복은
   // 매년 그 월/일에, 1회성은 해당 연·월에만(지난 것도 마커 유지).
   const monthItemsByDay = new Map<number, Anniversary[]>();
+  const markDay = (day: number, a: Anniversary) => {
+    const arr = monthItemsByDay.get(day) ?? [];
+    arr.push(a);
+    monthItemsByDay.set(day, arr);
+  };
   for (const a of list) {
-    const { y, m, d } = ymdFromIso(a.date);
-    const inMonth = a.yearly ? m === view.m : y === view.y && m === view.m;
-    if (inMonth) {
-      const arr = monthItemsByDay.get(d) ?? [];
-      arr.push(a);
-      monthItemsByDay.set(d, arr);
+    const s = ymdFromIso(a.date);
+    if (a.yearly) {
+      if (s.m === view.m) markDay(s.d, a); // 매년 반복은 매년 그 월/일
+    } else if (!a.endDate) {
+      if (s.y === view.y && s.m === view.m) markDay(s.d, a);
+    } else {
+      // 기간(1회성) — 시작~종료의 각 날짜 중 표시 중인 달에 속하는 날 마킹
+      for (let t = localMs(a.date); t <= localMs(a.endDate); t += DAY_MS) {
+        const dt = new Date(t);
+        if (dt.getFullYear() === view.y && dt.getMonth() === view.m)
+          markDay(dt.getDate(), a);
+      }
     }
   }
 
@@ -235,15 +386,20 @@ export function AnniversarySection() {
   // 매년 반복 포함 → 다가오는 순(D-day 오름차순).
   const listItems = selected
     ? list.filter((a) => {
-        const { y, m, d } = ymdFromIso(a.date);
-        return a.yearly
-          ? m === selected.m && d === selected.d
-          : y === selected.y && m === selected.m && d === selected.d;
+        const s = ymdFromIso(a.date);
+        if (a.yearly) return s.m === selected.m && s.d === selected.d;
+        const selMs = new Date(selected.y, selected.m, selected.d).getTime();
+        const startMs = localMs(a.date);
+        const endMs = a.endDate ? localMs(a.endDate) : startMs;
+        return selMs >= startMs && selMs <= endMs; // 기간이면 그 사이 날짜도 포함
       })
     : list
-        .filter(
-          (a) => a.yearly || nextOccurrenceMs(a.date, false, todayMs) >= todayMs
-        )
+        .filter((a) => {
+          if (a.yearly) return true;
+          // 완전히 지난 1회성(종료일 < 오늘)만 제외 — 기간이면 종료일 기준
+          const endMs = a.endDate ? localMs(a.endDate) : localMs(a.date);
+          return endMs >= todayMs;
+        })
         .sort(
           (a, b) =>
             nextOccurrenceMs(a.date, a.yearly, todayMs) -
@@ -536,31 +692,42 @@ export function AnniversarySection() {
         <p className="py-6 text-center text-sm text-text-muted">불러오는 중…</p>
       ) : listItems.length > 0 ? (
         <ul className="flex flex-col">
-          {listItems.map((a) => (
-            <li key={a.id}>
-              <button
-                type="button"
-                onClick={() => openEdit(a)}
-                className="flex w-full items-center justify-between gap-3 border-b border-line py-5 text-left transition-colors hover:bg-bg"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs tracking-[0.15em] text-text-muted">
-                    {a.title}
-                    {a.yearly ? " · 매년" : ""}
-                    {a.author
-                      ? ` · ${a.author.displayName ?? a.author.username}`
-                      : ""}
+          {listItems.map((a) => {
+            const dday = ddayDisplay(a, todayMs);
+            const range = rangeLabel(a);
+            return (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => openEdit(a)}
+                  className="flex w-full items-center justify-between gap-3 border-b border-line py-5 text-left transition-colors hover:bg-bg"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs tracking-[0.15em] text-text-muted">
+                      {a.title}
+                      {a.yearly ? " · 매년" : ""}
+                      {range ? ` · ${range}` : ""}
+                      {a.author
+                        ? ` · ${a.author.displayName ?? a.author.username}`
+                        : ""}
+                    </span>
+                    <span className="text-sm font-light tracking-wide">
+                      {formatRange(a)}
+                    </span>
+                  </div>
+                  <span
+                    className={`shrink-0 tabular-nums text-text ${
+                      dday === "진행 중"
+                        ? "text-base font-normal"
+                        : "text-3xl font-light"
+                    }`}
+                  >
+                    {dday}
                   </span>
-                  <span className="text-sm font-light tracking-wide">
-                    {formatDate(a.date)}
-                  </span>
-                </div>
-                <span className="text-3xl font-light tabular-nums text-text">
-                  {formatDday(a.date, a.yearly, todayMs)}
-                </span>
-              </button>
-            </li>
-          ))}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="py-5 text-center text-sm text-text-muted">
@@ -604,73 +771,52 @@ export function AnniversarySection() {
                 <span className="text-xs tracking-[0.15em] text-text-muted">
                   날짜
                 </span>
-                {/* 브라우저별 date UI 편차 대응: 커스텀 아이콘 + 빈값 placeholder */}
-                <div className="relative w-full">
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch (err) {
-                        console.debug("[일정] showPicker 예외:", err);
-                      }
-                    }}
-                    className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
-                      date ? "" : "text-transparent"
-                    }`}
-                  />
-                  {!date && (
-                    <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-text-muted">
-                      YYYY / MM / DD
-                    </span>
+                {/* 연일 토글 시 날짜 영역 페이드(key 변경으로 재생) */}
+                <div
+                  key={isRange ? "range" : "single"}
+                  className="animate-list-fade"
+                >
+                  {isRange ? (
+                    // 연일: 시작 ~ 끝 날짜를 flex로
+                    <div className="flex items-center gap-2">
+                      <DateField value={date} onChange={setDate} />
+                      <span className="shrink-0 text-text-muted">~</span>
+                      <DateField
+                        value={endDate}
+                        onChange={setEndDate}
+                        min={date || undefined}
+                      />
+                    </div>
+                  ) : (
+                    <DateField value={date} onChange={setDate} />
                   )}
-                  <svg
-                    aria-hidden
-                    width={18}
-                    height={18}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="pointer-events-none absolute right-0 top-1/2 size-[18px] -translate-y-1/2 text-text-muted"
-                  >
-                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-                    <path d="M3 9.5H21M8 3V6M16 3V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                  </svg>
                 </div>
               </label>
 
-              <button
-                type="button"
-                onClick={() => setYearly((v) => !v)}
-                className="flex select-none items-center gap-2.5 text-sm tracking-wide text-text-muted"
-              >
-                <span
-                  className={`relative inline-flex size-[18px] items-center justify-center rounded-md border transition-all ${
-                    yearly ? "border-primary bg-primary" : "border-line bg-surface"
+              {/* 연일·매년 반복 체크 — 가로. 연일이면 매년 반복은 자리는 유지하고 페이드아웃 */}
+              <div className="flex items-center gap-6">
+                <CheckButton
+                  checked={isRange}
+                  label="연일"
+                  onClick={() => {
+                    const nv = !isRange;
+                    setIsRange(nv);
+                    if (nv) setYearly(false);
+                    else setEndDate("");
+                  }}
+                />
+                <div
+                  className={`transition-opacity duration-200 ${
+                    isRange ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
                 >
-                  <svg
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    aria-hidden
-                    width={14}
-                    height={14}
-                    className={`size-3.5 shrink-0 text-white transition-opacity ${
-                      yearly ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    <path
-                      d="M3 7.5L6 10.5L11 4"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                매년 반복
-              </button>
+                  <CheckButton
+                    checked={yearly}
+                    label="매년 반복"
+                    onClick={() => setYearly((v) => !v)}
+                  />
+                </div>
+              </div>
 
               <div className="mt-2 flex flex-wrap gap-3">
                 {editingId !== null && (

@@ -55,11 +55,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { title, date, yearly } = parsed.data;
+    const { title, date, endDate, yearly } = parsed.data;
     const anniversary = await prisma.anniversary.create({
       data: {
         title,
         date: new Date(`${date}T00:00:00Z`),
+        endDate: endDate ? new Date(`${endDate}T00:00:00Z`) : null,
         yearly,
         authorId, // 로그인 사용자를 작성자로 기록
       },
