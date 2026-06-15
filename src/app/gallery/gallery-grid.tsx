@@ -177,15 +177,26 @@ export function GalleryGrid({
     }
     setClosing(false);
     setSelected(photo);
+    // 모달 열림을 history 항목으로 쌓는다 → 물리 뒤로가기(안드로이드 홈바)가
+    // 이전 페이지로 가지 않고 이 항목을 pop하며 모달만 닫히게 한다(popstate 핸들러).
+    window.history.pushState({ galleryModal: true }, "");
   }, []);
 
+  // 닫힘 애니메이션 실행 후 언마운트. 실제 닫기는 popstate(뒤로가기) 경로로만 일어난다.
   const requestClose = useCallback(() => {
+    if (closeTimer.current !== null) return; // 이미 닫는 중 — 중복 popstate 무시
     setClosing(true);
     closeTimer.current = window.setTimeout(() => {
       setSelected(null);
       setClosing(false);
       closeTimer.current = null;
     }, MODAL_ANIM_MS);
+  }, []);
+
+  // 사용자 닫기(X·배경·ESC)는 history를 되돌려 popstate 경로로 닫는다 →
+  // 물리 뒤로가기와 동일하게 동작하고, 쌓아둔 history 항목도 정확히 소비된다.
+  const closeModal = useCallback(() => {
+    window.history.back();
   }, []);
 
   // 이 인스턴스는 서버 재시드(router.refresh / pull-refresh)로 새 key에 마운트되며,
@@ -202,14 +213,19 @@ export function GalleryGrid({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
+      if (e.key === "Escape") closeModal();
     };
+    // 물리 뒤로가기(안드로이드 홈바)·제스처 → openDetail이 쌓은 history 항목이 pop되며
+    // popstate 발생 → 이전 페이지로 가지 않고 모달만 닫는다.
+    const onPop = () => requestClose();
     window.addEventListener("keydown", onKey);
+    window.addEventListener("popstate", onPop);
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("popstate", onPop);
     };
-  }, [selected, requestClose]);
+  }, [selected, requestClose, closeModal]);
 
   // 언마운트 시 대기 중인 닫힘 타이머 정리
   useEffect(
@@ -235,7 +251,7 @@ export function GalleryGrid({
             key={selected.id}
             photo={selected}
             closing={closing}
-            onClose={requestClose}
+            onClose={closeModal}
           />,
           document.body
         )}
