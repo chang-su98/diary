@@ -131,6 +131,8 @@
   /* 달력 월 이동 — 방향에 따라 좌우 슬라이드 + 페이드 */
   --animate-cal-next: cal-next 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-cal-prev: cal-prev 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* 날짜 선택 변경 시 리스트 영역 페이드 인 */
+  --animate-list-fade: list-fade 0.25s ease-out both;
 }
 
 @keyframes fade-up {
@@ -226,6 +228,18 @@
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* 리스트 영역 페이드 인(선택 날짜 변경 시) */
+@keyframes list-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

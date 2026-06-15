@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "vaul";
 import { holidayName } from "@/lib/holidays-kr";
@@ -103,6 +103,16 @@ export function AnniversarySection() {
   });
   // 달 이동 방향(1=다음, -1=이전) — 날짜 그리드 슬라이드 애니메이션 방향
   const [dir, setDir] = useState(1);
+  // 연/월 선택 팝오버("year" | "month" | null)
+  const [picker, setPicker] = useState<"year" | "month" | null>(null);
+  const yearListRef = useRef<HTMLDivElement>(null);
+  // 연도 팝오버가 열리면 현재 연도를 목록 가운데로 스크롤
+  useEffect(() => {
+    if (picker !== "year") return;
+    yearListRef.current
+      ?.querySelector('[data-current="true"]')
+      ?.scrollIntoView({ block: "center" });
+  }, [picker]);
   // 기본은 선택 없음(전체 보기) — 처음 열면 다가오는 일정 목록을 보여준다(D-day 중심).
   // 날짜를 탭하면 그날 일정 보기로 들어가고, 오늘은 달력에 회색으로 표시된다.
   const [selected, setSelected] = useState<{
@@ -257,6 +267,14 @@ export function AnniversarySection() {
         : { y: view.y, m: view.m, d }
     );
   }
+  // 연/월 드롭다운에서 특정 달로 점프(슬라이드 방향은 이동 방향대로). 선택 날짜는 유지.
+  function jumpTo(y: number, m: number) {
+    const oldIdx = view.y * 12 + view.m;
+    const newIdx = y * 12 + m;
+    if (newIdx === oldIdx) return;
+    setDir(newIdx > oldIdx ? 1 : -1);
+    setView({ y, m });
+  }
 
   // 선택한 날짜가 공휴일이면 이름(예: "추석") 표시
   const selectedHoliday = selected
@@ -268,6 +286,16 @@ export function AnniversarySection() {
     selected.y === td.getFullYear() &&
     selected.m === td.getMonth() &&
     selected.d === td.getDate();
+  // 리스트 영역 페이드용 key — 선택(날짜/전체)이 바뀌면 재마운트되어 페이드 인 재생
+  const listKey = selected
+    ? `${selected.y}-${selected.m}-${selected.d}`
+    : "all";
+
+  // 연도 드롭다운 범위 — 오늘 기준 넉넉히 + 현재 보는 연도가 항상 포함되도록 보정
+  const yearMin = Math.min(td.getFullYear() - 30, view.y);
+  const yearMax = Math.max(td.getFullYear() + 10, view.y);
+  const years: number[] = [];
+  for (let y = yearMin; y <= yearMax; y++) years.push(y);
 
   return (
     <section >
@@ -300,9 +328,8 @@ export function AnniversarySection() {
       </div>
 
       {/* 월간 달력 — 마커는 읽기 전용(추가는 상단 + 버튼). 날짜를 탭하면 그 날 일정만
-          아래 리스트에 표시(지난 1회성도 달력에서 선택하면 보고 수정 가능).
-          overflow-hidden: 달 이동 슬라이드(translateX)가 가로로 넘쳐 스크롤 생기는 것 방지 */}
-      <div className="mb-5 overflow-hidden">
+          아래 리스트에 표시(지난 1회성도 달력에서 선택하면 보고 수정 가능). */}
+      <div className="mb-5">
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
@@ -314,9 +341,86 @@ export function AnniversarySection() {
               <path d="M15 6L9 12L15 18" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="text-sm font-light tracking-[0.15em] tabular-nums">
-            {view.y}. {String(view.m + 1).padStart(2, "0")}
-          </span>
+          <div className="relative flex items-center gap-1 text-sm font-light tracking-[0.15em] tabular-nums text-text">
+            <button
+              type="button"
+              onClick={() => setPicker((p) => (p === "year" ? null : "year"))}
+              aria-label="연도 선택"
+              className="rounded px-1 py-0.5 transition-colors hover:bg-line/50"
+            >
+              {view.y}
+            </button>
+            <span>.</span>
+            <button
+              type="button"
+              onClick={() => setPicker((p) => (p === "month" ? null : "month"))}
+              aria-label="월 선택"
+              className="rounded px-1 py-0.5 transition-colors hover:bg-line/50"
+            >
+              {String(view.m + 1).padStart(2, "0")}
+            </button>
+
+            {picker !== null && (
+              <>
+                {/* 바깥 클릭으로 닫기 */}
+                <button
+                  type="button"
+                  aria-label="닫기"
+                  onClick={() => setPicker(null)}
+                  className="fixed inset-0 z-[64] cursor-default"
+                />
+                <div className="absolute left-1/2 top-[calc(100%+0.4rem)] z-[65] origin-top -translate-x-1/2 animate-modal-pop overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+                  {picker === "year" ? (
+                    <div
+                      ref={yearListRef}
+                      className="max-h-36 w-36 overflow-y-auto p-2"
+                    >
+                      <div className="grid grid-cols-3 gap-1">
+                        {years.map((y) => (
+                          <button
+                            key={y}
+                            type="button"
+                            data-current={y === view.y ? "true" : undefined}
+                            onClick={() => {
+                              jumpTo(y, view.m);
+                              setPicker(null);
+                            }}
+                            className={`rounded-lg py-1.5 text-center text-[0.7rem] tabular-nums transition-colors ${
+                              y === view.y
+                                ? "bg-primary font-medium text-white"
+                                : "text-text hover:bg-line/40"
+                            }`}
+                          >
+                            {y}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid w-36 grid-cols-3 gap-1 p-2">
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            jumpTo(view.y, i);
+                            setPicker(null);
+                          }}
+                          className={`rounded-lg py-1.5 text-center text-[0.7rem] tabular-nums transition-colors ${
+                            i === view.m
+                              ? "bg-primary font-medium text-white"
+                              : "text-text hover:bg-line/40"
+                          }`}
+                        >
+                          {i + 1}월
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => shiftMonth(1)}
@@ -340,13 +444,16 @@ export function AnniversarySection() {
             </span>
           ))}
         </div>
-        {/* 날짜 그리드 — 달이 바뀌면 key가 바뀌어 방향대로 슬라이드+페이드 재생 */}
-        <div
-          key={view.y * 12 + view.m}
-          className={`grid grid-cols-7 text-center ${
-            dir >= 0 ? "animate-cal-next" : "animate-cal-prev"
-          }`}
-        >
+        {/* 날짜 그리드 — 달이 바뀌면 key가 바뀌어 방향대로 슬라이드+페이드 재생.
+            overflow-hidden: 슬라이드(translateX)가 가로로 넘쳐 스크롤 생기는 것 방지
+            (팝오버는 이 래퍼 밖에 있어 잘리지 않음) */}
+        <div className="overflow-hidden">
+          <div
+            key={view.y * 12 + view.m}
+            className={`grid grid-cols-7 text-center ${
+              dir >= 0 ? "animate-cal-next" : "animate-cal-prev"
+            }`}
+          >
           {cells.map((d, i) => {
             if (d === null) return <span key={`e${i}`} className="aspect-square" />;
             const weekday = i % 7; // 0=일
@@ -395,18 +502,26 @@ export function AnniversarySection() {
               </button>
             );
           })}
+          </div>
         </div>
       </div>
 
-      {selected && (
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-xs tracking-[0.15em] text-text-muted">
-            {selected.m + 1}월 {selected.d}일
-            {selectedHoliday ? (
-              <span className="text-error"> · {selectedHoliday}</span>
-            ) : null}
-            {isSelectedToday ? " (TODAY)" : null}
-          </span>
+      <div key={listKey} className="animate-list-fade">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs tracking-[0.15em] text-text-muted">
+          {selected ? (
+            <>
+              {selected.m + 1}월 {selected.d}일
+              {selectedHoliday ? (
+                <span className="text-error"> · {selectedHoliday}</span>
+              ) : null}
+              {isSelectedToday ? " (TODAY)" : null}
+            </>
+          ) : (
+            "전체 일정"
+          )}
+        </span>
+        {selected && (
           <button
             type="button"
             onClick={() => setSelected(null)}
@@ -414,8 +529,8 @@ export function AnniversarySection() {
           >
             전체 보기
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {isPending ? (
         <p className="py-6 text-center text-sm text-text-muted">불러오는 중…</p>
@@ -452,6 +567,7 @@ export function AnniversarySection() {
           일정이 없습니다.
         </p>
       )}
+      </div>
 
 
       {/* 추가/수정 바텀시트 */}
