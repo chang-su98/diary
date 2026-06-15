@@ -12,10 +12,15 @@
     "postinstall": "prisma generate"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/engines", "esbuild", "prisma"]
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1066.0",
+    "@hyunbinseo/holidays-kr": "^4.2026.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@tanstack/react-query": "^5.101.0",

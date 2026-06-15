@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "vaul";
+import { holidayName } from "@/lib/holidays-kr";
 
 type Anniversary = {
   id: number;
@@ -67,11 +68,47 @@ function formatDday(iso: string, yearly: boolean, todayMs: number): string {
   return r > 0 ? `D-${r}` : `D+${-r}`;
 }
 
+// UTC 자정으로 저장된 날짜에서 연/월/일 추출(타임존 시프트 방지)
+function ymdFromIso(iso: string): { y: number; m: number; d: number } {
+  const dt = new Date(iso);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth(), d: dt.getUTCDate() };
+}
+
+// 다음 발생 시각(로컬 자정 ms) — 매년 반복은 다음 주기, 1회성은 그 날짜. 정렬·필터용.
+function nextOccurrenceMs(
+  iso: string,
+  yearly: boolean,
+  todayMs: number
+): number {
+  const { y, m, d } = ymdFromIso(iso);
+  if (yearly) {
+    const ty = new Date(todayMs).getFullYear();
+    let next = new Date(ty, m, d).getTime();
+    if (next < todayMs) next = new Date(ty + 1, m, d).getTime();
+    return next;
+  }
+  return new Date(y, m, d).getTime();
+}
+
 export function AnniversarySection() {
   const qc = useQueryClient();
   const [todayMs] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  });
+  // 달력에 표시 중인 달 + 선택된 날짜(선택 시 그 날 일정만 리스트에 표시)
+  const [view, setView] = useState(() => {
+    const n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth() };
+  });
+  const [selected, setSelected] = useState<{
+    y: number;
+    m: number;
+    d: number;
+  } | null>(() => {
+    // 기본 선택은 오늘 — 처음 열면 오늘 일정을 보여준다("전체 보기"로 다가오는 목록 전환)
+    const n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth(), d: n.getDate() };
   });
 
   const { data: items, isPending } = useQuery({
@@ -90,7 +127,14 @@ export function AnniversarySection() {
   function openAdd() {
     setEditingId(null);
     setTitle("");
-    setDate("");
+    // 달력에서 날짜를 선택해 둔 상태면 그 날짜를 기본값으로(한 날짜에 여러 일정 추가 편의)
+    setDate(
+      selected
+        ? `${selected.y}-${String(selected.m + 1).padStart(2, "0")}-${String(
+            selected.d
+          ).padStart(2, "0")}`
+        : ""
+    );
     setYearly(true);
     setErr(null);
     setOpen(true);
@@ -152,39 +196,215 @@ export function AnniversarySection() {
   const deleting = deleteMutation.isPending;
   const busy = saving || deleting;
 
+  // ── 달력/리스트 파생값 ───────────────────────────────
+  const td = new Date(todayMs);
+  const list = items ?? [];
+
+  // 표시 중인 달에 일정이 있는 날 → 날짜별 항목(마커 + 선택 보기). 매년 반복은
+  // 매년 그 월/일에, 1회성은 해당 연·월에만(지난 것도 마커 유지).
+  const monthItemsByDay = new Map<number, Anniversary[]>();
+  for (const a of list) {
+    const { y, m, d } = ymdFromIso(a.date);
+    const inMonth = a.yearly ? m === view.m : y === view.y && m === view.m;
+    if (inMonth) {
+      const arr = monthItemsByDay.get(d) ?? [];
+      arr.push(a);
+      monthItemsByDay.set(d, arr);
+    }
+  }
+
+  // 달력 셀: 앞 빈칸 + 1..말일 + 뒤 빈칸(주 단위 정렬)
+  const firstWeekday = new Date(view.y, view.m, 1).getDay();
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  // 리스트: 날짜 선택 시 그 날 일정(지난·매년 포함), 아니면 지난 1회성 제외 +
+  // 매년 반복 포함 → 다가오는 순(D-day 오름차순).
+  const listItems = selected
+    ? list.filter((a) => {
+        const { y, m, d } = ymdFromIso(a.date);
+        return a.yearly
+          ? m === selected.m && d === selected.d
+          : y === selected.y && m === selected.m && d === selected.d;
+      })
+    : list
+        .filter(
+          (a) => a.yearly || nextOccurrenceMs(a.date, false, todayMs) >= todayMs
+        )
+        .sort(
+          (a, b) =>
+            nextOccurrenceMs(a.date, a.yearly, todayMs) -
+            nextOccurrenceMs(b.date, b.yearly, todayMs)
+        );
+
+  function shiftMonth(delta: number) {
+    setSelected(null);
+    setView((v) => {
+      const m = v.m + delta;
+      if (m < 0) return { y: v.y - 1, m: 11 };
+      if (m > 11) return { y: v.y + 1, m: 0 };
+      return { y: v.y, m };
+    });
+  }
+  function pickDay(d: number) {
+    setSelected((cur) =>
+      cur && cur.y === view.y && cur.m === view.m && cur.d === d
+        ? null
+        : { y: view.y, m: view.m, d }
+    );
+  }
+
+  // 선택한 날짜가 공휴일이면 이름(예: "추석") 표시
+  const selectedHoliday = selected
+    ? holidayName(selected.y, selected.m, selected.d)
+    : null;
+
   return (
     <section >
-      <div className="relative mb-2 flex items-center">
-        <h2 className="text-xs tracking-[0.2em] text-text-muted">우리의 일정</h2>
+      <div className="relative mb-8">
+        <h2 className="pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
+          CALENDAR
+        </h2>
         <button
           type="button"
           onClick={openAdd}
           aria-label="일정 추가"
-          className="absolute right-0 flex size-7 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+          className="absolute right-0 top-1/2 -translate-y-1/2 p-1 transition-opacity hover:opacity-60"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
+          {/* 갤러리 + 버튼과 동일한 plus 아이콘(mask) */}
+          <span
             aria-hidden
-            width={20}
-            height={20}
-            className="size-5 shrink-0"
-          >
-            <path
-              d="M12 5V19M5 12H19"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
-          </svg>
+            className="block size-6 bg-text"
+            style={{
+              maskImage: "url(/asset/images/contents/plus.svg)",
+              WebkitMaskImage: "url(/asset/images/contents/plus.svg)",
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskPosition: "center",
+              maskSize: "contain",
+              WebkitMaskSize: "contain",
+            }}
+          />
         </button>
       </div>
 
+      {/* 월간 달력 — 마커는 읽기 전용(추가는 상단 + 버튼). 날짜를 탭하면 그 날 일정만
+          아래 리스트에 표시(지난 1회성도 달력에서 선택하면 보고 수정 가능). */}
+      <div className="mb-5">
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => shiftMonth(-1)}
+            aria-label="이전 달"
+            className="flex size-7 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+          >
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" aria-hidden className="size-[18px]">
+              <path d="M15 6L9 12L15 18" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <span className="text-sm font-light tracking-[0.15em] tabular-nums">
+            {view.y}. {String(view.m + 1).padStart(2, "0")}
+          </span>
+          <button
+            type="button"
+            onClick={() => shiftMonth(1)}
+            aria-label="다음 달"
+            className="flex size-7 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+          >
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" aria-hidden className="size-[18px]">
+              <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="grid grid-cols-7 text-center">
+          {WEEKDAYS.map((w, i) => (
+            <span
+              key={w}
+              className={`py-1 text-[0.65rem] tracking-wide ${
+                i === 0 ? "text-error" : "text-text-muted"
+              }`}
+            >
+              {w}
+            </span>
+          ))}
+          {cells.map((d, i) => {
+            if (d === null) return <span key={`e${i}`} className="aspect-square" />;
+            const weekday = i % 7; // 0=일
+            const isToday =
+              view.y === td.getFullYear() &&
+              view.m === td.getMonth() &&
+              d === td.getDate();
+            const isSelected =
+              selected?.y === view.y &&
+              selected?.m === view.m &&
+              selected?.d === d;
+            const has = monthItemsByDay.has(d);
+            // 공휴일(빨간날) 또는 일요일이면 빨간 숫자
+            const isRed = weekday === 0 || holidayName(view.y, view.m, d) !== null;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => pickDay(d)}
+                className={`relative flex aspect-square w-full flex-col items-center justify-center rounded-full text-sm transition-colors ${
+                  isSelected
+                    ? "bg-primary font-medium"
+                    : isToday
+                      ? "bg-line font-medium"
+                      : ""
+                }`}
+              >
+                <span
+                  className={`tabular-nums ${
+                    isSelected
+                      ? "text-white"
+                      : isRed
+                        ? "text-error"
+                        : "text-text"
+                  }`}
+                >
+                  {d}
+                </span>
+                {has && (
+                  <span
+                    className={`absolute bottom-1 size-1 rounded-full ${
+                      isSelected ? "bg-white" : "bg-primary"
+                    }`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {selected && (
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs tracking-[0.15em] text-text-muted">
+            {selected.m + 1}월 {selected.d}일
+            {selectedHoliday ? (
+              <span className="text-error"> · {selectedHoliday}</span>
+            ) : null}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="text-xs tracking-[0.15em] text-text-muted transition-colors hover:text-text"
+          >
+            전체 보기
+          </button>
+        </div>
+      )}
+
       {isPending ? (
         <p className="py-6 text-center text-sm text-text-muted">불러오는 중…</p>
-      ) : items && items.length > 0 ? (
+      ) : listItems.length > 0 ? (
         <ul className="flex flex-col">
-          {items.map((a) => (
+          {listItems.map((a) => (
             <li key={a.id}>
               <button
                 type="button"
@@ -212,7 +432,7 @@ export function AnniversarySection() {
         </ul>
       ) : (
         <p className="py-5 text-center text-sm text-text-muted">
-          등록된 일정이 없습니다.
+          일정이 없습니다.
         </p>
       )}
 
