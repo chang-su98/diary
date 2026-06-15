@@ -9,7 +9,7 @@ import type { GalleryPhoto as Photo } from "./types";
 
 // 메이슨리 레이아웃 상수 — 3열, 셀 간격 8px(가로·세로 동일).
 const COLUMNS = 3;
-const GUTTER = 8;
+const GUTTER = 6;
 // 위치 변화 트랜지션 → 추가/삭제 시 타일이 새 위치로 부드럽게 흘러간다(아이폰 사진첩식).
 const REFLOW_TRANSITION =
   "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -442,7 +442,7 @@ function PhotoMasonry({
           })
         ) : (
           // 너비 측정 전 폴백 — CSS columns 메이슨리(SSR·첫 프레임 깜빡임 방지)
-          <div className="columns-3 gap-2 [&>*]:mb-2">
+          <div className="columns-3 gap-1.5 [&>*]:mb-1.5">
             {items.map((p) => (
               <GalleryTile
                 key={p.id}
