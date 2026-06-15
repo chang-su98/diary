@@ -94,7 +94,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-[calc(2rem+env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-8 pb-28 pt-[calc(2rem+var(--safe-top))]">
       <h1 className="mb-10 pl-[0.3em] text-center text-2xl font-light tracking-[0.3em]">
         EDIT
       </h1>
@@ -263,7 +263,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
             className="fixed inset-0 z-[60]"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] outline-none">
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-line bg-surface pb-[var(--safe-bottom)] outline-none">
             <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-line" />
             <Drawer.Title className="px-6 pb-1 pt-4 text-xs tracking-[0.15em] text-text-muted">
               프로필 사진

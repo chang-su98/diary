@@ -76,7 +76,7 @@ export default async function Home() {
   const days = daysSince();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+var(--safe-top))] pb-[calc(4.5rem+var(--safe-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
       {/* 히어로 — 라인 드로잉 + 진입 fade-in */}
       <Reveal>
         <div className="flex justify-center">

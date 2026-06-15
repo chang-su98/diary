@@ -434,7 +434,7 @@ function PhotoDetail({
     >
       {/* 상단: 등록자 아이디 + 프로필 사진 */}
       <div
-        className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]"
+        className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+var(--safe-top))]"
         onClick={(e) => e.stopPropagation()}
       >
         <span className="size-9 overflow-hidden rounded-full border border-line bg-bg">
@@ -480,7 +480,7 @@ function PhotoDetail({
       </div>
 
       {/* 사진 자세히 보기 — 그리드와 같은 원본(캐시됨) */}
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+var(--safe-bottom))]">
         {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
         <img
           src={rawUrl(photo.id)}

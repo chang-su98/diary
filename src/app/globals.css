@@ -90,6 +90,12 @@
 :root {
   --background: #ffffff;
   --foreground: #1e1e1e;
+  /* 기기 안전영역(노치·제스처 홈바). 상단은 인셋 그대로 쓰지만, 하단은
+     안드로이드(갤럭시)가 env(safe-area-inset-bottom)을 0으로 보고하는 경우가
+     많아 제스처 홈바가 하단 탭바를 덮는다 → 최소 0.5rem 여백을 보장한다.
+     iOS는 인셋이 더 크므로 그대로 인셋을 따른다. */
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
 
 @theme inline {

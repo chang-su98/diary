@@ -131,7 +131,7 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
         }}
       >
         <span
-          className={`mt-[calc(env(safe-area-inset-top)+0.5rem)] size-7 rounded-full border-2 border-line border-t-primary ${
+          className={`mt-[calc(var(--safe-top)+0.5rem)] size-7 rounded-full border-2 border-line border-t-primary ${
             refreshing ? "animate-spin" : ""
           }`}
           style={

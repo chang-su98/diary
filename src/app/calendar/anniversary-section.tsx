@@ -224,7 +224,7 @@ export function AnniversarySection() {
             className="fixed inset-0 z-[60]"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-line bg-surface px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none">
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md flex-col rounded-t-3xl border-t border-line bg-surface px-6 pb-[calc(1.5rem+var(--safe-bottom))] outline-none">
             <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-line" />
             <Drawer.Title className="pb-4 pt-4 text-sm tracking-[0.15em] text-text-muted">
               {editingId === null ? "일정 추가" : "일정 수정"}

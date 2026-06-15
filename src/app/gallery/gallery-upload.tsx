@@ -158,7 +158,7 @@ export function GalleryUpload({
         <button
           type="button"
           onClick={allSelected ? deselectAll : selectAll}
-          className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 text-sm font-medium text-text transition-opacity hover:opacity-60"
+          className="absolute right-6 top-[calc(2rem+var(--safe-top))] p-1 text-sm font-medium text-text transition-opacity hover:opacity-60"
         >
           {allSelected ? "선택 해제" : "전체선택"}
         </button>
@@ -170,7 +170,7 @@ export function GalleryUpload({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           aria-label="메뉴 열기"
-          className="absolute right-6 top-[calc(2rem+env(safe-area-inset-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
+          className="absolute right-6 top-[calc(2rem+var(--safe-top))] p-1 transition-opacity hover:opacity-60 disabled:opacity-40"
         >
           {/* plus.svg를 mask로 사용 → 테마색(bg-text)으로 채색 (profile 헤더와 동일 패턴) */}
           <span
@@ -201,7 +201,7 @@ export function GalleryUpload({
           />
           <div
             role="menu"
-            className={`absolute right-6 top-[calc(3.75rem+env(safe-area-inset-top))] z-[66] w-36 origin-top-right overflow-hidden rounded-xl border border-line bg-surface shadow-lg ${
+            className={`absolute right-6 top-[calc(3.75rem+var(--safe-top))] z-[66] w-36 origin-top-right overflow-hidden rounded-xl border border-line bg-surface shadow-lg ${
               menuClosing ? "animate-modal-pop-out" : "animate-modal-pop"
             }`}
           >
@@ -248,7 +248,7 @@ export function GalleryUpload({
         createPortal(
           <p
             role="alert"
-            className="fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
+            className="fixed left-1/2 top-[calc(1rem+var(--safe-top))] z-[80] -translate-x-1/2 rounded-full bg-error px-4 py-2 text-sm text-white shadow-lg"
           >
             {msg}
           </p>,

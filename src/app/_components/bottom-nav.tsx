@@ -66,7 +66,7 @@ export function BottomNav() {
           진입·취소 양방향 모두 부드럽게 전환된다(탭 레이어가 높이 기준). */}
       <div className="relative">
         <ul
-          className={`mx-auto flex max-w-md items-stretch justify-around pb-[env(safe-area-inset-bottom)] transition-opacity duration-200 ${
+          className={`mx-auto flex max-w-md items-stretch justify-around pb-[var(--safe-bottom)] transition-opacity duration-200 ${
             selectionMode ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
           aria-hidden={selectionMode}
@@ -116,7 +116,7 @@ export function BottomNav() {
           }`}
           aria-hidden={!selectionMode}
         >
-          <div className="mx-auto flex max-w-md items-stretch pb-[env(safe-area-inset-bottom)]">
+          <div className="mx-auto flex max-w-md items-stretch pb-[var(--safe-bottom)]">
             <button
               type="button"
               onClick={exitSelection}
