@@ -101,15 +101,15 @@ export function AnniversarySection() {
     const n = new Date();
     return { y: n.getFullYear(), m: n.getMonth() };
   });
+  // 달 이동 방향(1=다음, -1=이전) — 날짜 그리드 슬라이드 애니메이션 방향
+  const [dir, setDir] = useState(1);
+  // 기본은 선택 없음(전체 보기) — 처음 열면 다가오는 일정 목록을 보여준다(D-day 중심).
+  // 날짜를 탭하면 그날 일정 보기로 들어가고, 오늘은 달력에 회색으로 표시된다.
   const [selected, setSelected] = useState<{
     y: number;
     m: number;
     d: number;
-  } | null>(() => {
-    // 기본 선택은 오늘 — 처음 열면 오늘 일정을 보여준다("전체 보기"로 다가오는 목록 전환)
-    const n = new Date();
-    return { y: n.getFullYear(), m: n.getMonth(), d: n.getDate() };
-  });
+  } | null>(null);
 
   const { data: items, isPending } = useQuery({
     queryKey: QUERY_KEY,
@@ -241,7 +241,8 @@ export function AnniversarySection() {
         );
 
   function shiftMonth(delta: number) {
-    setSelected(null);
+    // 달을 옮겨도 선택한 날짜는 유지(다른 달을 봐도 선택 해제 안 됨)
+    setDir(delta);
     setView((v) => {
       const m = v.m + delta;
       if (m < 0) return { y: v.y - 1, m: 11 };
@@ -261,6 +262,12 @@ export function AnniversarySection() {
   const selectedHoliday = selected
     ? holidayName(selected.y, selected.m, selected.d)
     : null;
+  // 선택한 날짜가 오늘인지 — 헤더에 (TODAY) 표시
+  const isSelectedToday =
+    selected !== null &&
+    selected.y === td.getFullYear() &&
+    selected.m === td.getMonth() &&
+    selected.d === td.getDate();
 
   return (
     <section >
@@ -293,8 +300,9 @@ export function AnniversarySection() {
       </div>
 
       {/* 월간 달력 — 마커는 읽기 전용(추가는 상단 + 버튼). 날짜를 탭하면 그 날 일정만
-          아래 리스트에 표시(지난 1회성도 달력에서 선택하면 보고 수정 가능). */}
-      <div className="mb-5">
+          아래 리스트에 표시(지난 1회성도 달력에서 선택하면 보고 수정 가능).
+          overflow-hidden: 달 이동 슬라이드(translateX)가 가로로 넘쳐 스크롤 생기는 것 방지 */}
+      <div className="mb-5 overflow-hidden">
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
@@ -331,6 +339,14 @@ export function AnniversarySection() {
               {w}
             </span>
           ))}
+        </div>
+        {/* 날짜 그리드 — 달이 바뀌면 key가 바뀌어 방향대로 슬라이드+페이드 재생 */}
+        <div
+          key={view.y * 12 + view.m}
+          className={`grid grid-cols-7 text-center ${
+            dir >= 0 ? "animate-cal-next" : "animate-cal-prev"
+          }`}
+        >
           {cells.map((d, i) => {
             if (d === null) return <span key={`e${i}`} className="aspect-square" />;
             const weekday = i % 7; // 0=일
@@ -389,6 +405,7 @@ export function AnniversarySection() {
             {selectedHoliday ? (
               <span className="text-error"> · {selectedHoliday}</span>
             ) : null}
+            {isSelectedToday ? " (TODAY)" : null}
           </span>
           <button
             type="button"
