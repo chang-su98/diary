@@ -217,7 +217,7 @@ export function HomeCalendar() {
             {listItems.map((a) => (
               <li
                 key={a.id}
-                className="flex items-center justify-between gap-3 border-b border-line py-3 last:border-b-0"
+                className="flex items-center justify-between gap-3 border-b border-line py-3 last:border-b-0 last:pb-0"
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate text-[0.8rem] tracking-wide text-text">
@@ -237,7 +237,7 @@ export function HomeCalendar() {
             ))}
           </ul>
         ) : (
-          <p className="py-5 text-center text-xs tracking-[0.15em] text-text-muted">
+          <p className="pt-5 text-center text-xs tracking-[0.15em] text-text-muted">
             {selected !== null ? "이 날 일정이 없어요." : "이번 달 일정이 없어요."}
           </p>
         )}

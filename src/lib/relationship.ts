@@ -1,5 +1,5 @@
 // 처음 만난 날 = 함께한 첫날(1일째). KST 기준 단일 출처.
-// day-counter·next-anniversary·메인(MeetDateCard)이 모두 이 상수를 공유한다.
+// day-counter·next-anniversary(캘린더·메인 공용)가 모두 이 상수를 공유한다.
 //
 // ⚠️ 타임존: 이 앱은 KST(국내 2인 폐쇄형) 전용이다. SINCE_MS는 KST(+09:00) 자정으로
 // 고정하고, 캘린더의 "오늘"·D-day는 클라이언트 로컬 자정을 쓴다. KST 클라이언트에서는

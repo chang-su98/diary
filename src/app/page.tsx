@@ -2,12 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { daysSince } from "@/lib/relationship";
-import { MeetDateCard } from "@/app/_components/meet-date-card";
+import { SINCE } from "@/lib/relationship";
+import { DayCounter } from "@/app/calendar/day-counter";
+import { NextAnniversary } from "@/app/calendar/next-anniversary";
 import { HomeCalendar } from "@/app/_components/home-calendar";
 import { CoupleLine } from "@/app/_components/couple-line";
 import { Reveal } from "@/app/_components/reveal";
 
+const pad = (n: number) => String(n).padStart(2, "0");
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 // 생일(DateTime?) → "M월 D일". 날짜만 의미 있으므로 UTC 기준 표기(타임존 이동 방지).
 const fmtBirthday = (d: Date | null) =>
@@ -73,7 +75,6 @@ export default async function Home() {
         },
       ];
   const recent = photos; // 최신 6장 — 정사각 3×2 그리드
-  const days = daysSince();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col divide-y divide-line px-6 pt-[calc(2rem+var(--safe-top))] pb-[calc(4.5rem+var(--safe-bottom))] [&>section]:py-7 [&>section:first-child]:pt-0 [&>section:last-child]:pb-0">
@@ -84,8 +85,8 @@ export default async function Home() {
         </div>
       </Reveal>
 
-      {/* 두 사람 이름 + 처음 만난 날 카드 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
-      <Reveal className="space-y-7">
+      {/* 두 사람 이름 + 처음 만난 날(디데이 페이지와 동일한 누적일 카운터 디자인) */}
+      <Reveal className="space-y-5">
         <div className="text-center">
           <h1 className="text-2xl font-extralight tracking-[0.18em] text-text">
             {people.map((p, i) => (
@@ -99,7 +100,19 @@ export default async function Home() {
           </h1>
         </div>
 
-        <MeetDateCard days={days} />
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-[0.7rem] tracking-[0.3em] text-text-muted">
+            SINCE {SINCE.year}.{pad(SINCE.month)}.{pad(SINCE.day)}
+          </span>
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="text-4xl font-thin text-text-muted">+</span>
+            <DayCounter className="inline-block min-w-[2ch] text-center text-7xl font-extralight leading-none tabular-nums" />
+            <span className="self-end pb-1 text-xl font-light text-text-muted">
+              일
+            </span>
+          </div>
+          <NextAnniversary className="text-[0.7rem] tracking-[0.3em] text-text-muted" />
+        </div>
       </Reveal>
 
       {/* CALENDAR — 이번 달 일정 미리보기(읽기 전용). 탭하면 캘린더 페이지로 이동. */}
