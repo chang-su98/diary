@@ -1,3 +1,38 @@
+// 캘린더 공용 날짜 유틸/상수.
+//
+// ⚠️ 타임존 가정: 이 앱은 KST(한국, 2인 폐쇄형) 전용이다. 날짜는 DB에 UTC 자정으로
+// 저장되고(getUTC* 로 "달력 날짜"를 추출), "오늘"·D-day는 클라이언트 로컬 자정 기준으로
+// 계산한다. 처음 만난 날 기준(relationship.SINCE_MS)도 KST(+09:00) 고정이다.
+// → KST 클라이언트에서는 모두 일관되며, 음수 오프셋 타임존에서 접속하면 누적일/D-day가
+//   하루 어긋날 수 있으나 운영 대상(국내 2인)이 KST라 의도된 단일 타임존 가정이다.
+
+export const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+export const DAY_MS = 86_400_000;
+
+// 저장된 날짜(UTC 자정 ISO)에서 "yyyy-mm-dd(요일)" 표기
+export function formatYmdWeekday(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
+}
+
+// 다음 연례 발생일(로컬 자정). 올해 남았으면 올해, 지났으면 내년. 오늘이면 오늘.
+// D-day·정렬용. (점프 대상 선택은 yearlyJumpDate 참조 — 규칙이 다름)
+export function nextYearlyOccurrence(
+  month: number, // 0-based
+  day: number,
+  todayMs: number
+): Date {
+  const today = new Date(todayMs);
+  let next = new Date(today.getFullYear(), month, day);
+  if (next.getTime() < todayMs) {
+    next = new Date(today.getFullYear() + 1, month, day);
+  }
+  return next;
+}
+
 // 매년 반복 일정(생일·기념일)을 슬라이드1에서 눌러 달력으로 점프할 때 선택할 날짜.
 //
 // - 같은 달이면 "올해" 날짜로(이미 지난 날이어도) → 오늘과 같은 달에 함께 보이게 한다.

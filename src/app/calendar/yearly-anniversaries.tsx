@@ -3,47 +3,25 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCalendarStore } from "@/lib/calendar-store";
-import { yearlyJumpDate } from "@/lib/calendar-date";
+import { fetchAnniversaries } from "@/lib/calendar-api";
+import {
+  DAY_MS,
+  formatYmdWeekday,
+  nextYearlyOccurrence,
+  yearlyJumpDate,
+} from "@/lib/calendar-date";
 
 // 매년 반복 일정을 생일 D-day 목록 아래에 같은 스타일로 표시한다.
 // 일정 쿼리(["anniversaries"])를 AnniversarySection과 공유 → 중복 fetch 없음.
 
-type Anniversary = {
-  id: number;
-  title: string;
-  date: string; // ISO 문자열(UTC 자정)
-  yearly: boolean;
-  author: { displayName: string | null; username: string } | null;
-};
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const DAY_MS = 86_400_000;
-
-async function fetchAnniversaries(): Promise<Anniversary[]> {
-  const res = await fetch("/api/anniversaries");
-  if (!res.ok) throw new Error("일정을 불러오지 못했습니다.");
-  const data: { anniversaries: Anniversary[] } = await res.json();
-  return data.anniversaries;
-}
-
-// 저장된 날짜(UTC 자정)에서 yyyy-mm-dd(요일) 표기
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
-}
-
-// 다음 주기(올해 또는 내년) 발생 시각(로컬 자정 ms)
+// 저장된 날짜(UTC 자정 ISO)의 월/일로 다음 발생 시각(로컬 자정 ms) — D-day·정렬용
 function nextOccurrenceMs(iso: string, todayMs: number): number {
   const d = new Date(iso);
-  const today = new Date(todayMs);
-  let next = new Date(today.getFullYear(), d.getUTCMonth(), d.getUTCDate());
-  if (next.getTime() < todayMs) {
-    next = new Date(today.getFullYear() + 1, d.getUTCMonth(), d.getUTCDate());
-  }
-  return next.getTime();
+  return nextYearlyOccurrence(
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    todayMs
+  ).getTime();
 }
 
 export function YearlyAnniversaries() {
@@ -98,7 +76,7 @@ export function YearlyAnniversaries() {
                     : ""}
                 </span>
                 <span className="text-sm font-light tracking-wide">
-                  {formatDate(a.date)}
+                  {formatYmdWeekday(a.date)}
                 </span>
               </div>
               <span className="text-2xl font-normal tabular-nums text-text">

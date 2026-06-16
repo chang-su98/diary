@@ -5,33 +5,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "vaul";
 import { useHolidays, holidayKey } from "@/lib/use-holidays";
 import { useCalendarStore } from "@/lib/calendar-store";
+import { fetchAnniversaries, fetchMembers } from "@/lib/calendar-api";
 import {
   buildFixedAnniversaries,
   type CalendarAnniversary,
-  type FixedMember,
 } from "@/lib/fixed-anniversaries";
+import {
+  DAY_MS,
+  WEEKDAYS,
+  formatYmdWeekday,
+  nextYearlyOccurrence,
+} from "@/lib/calendar-date";
 
 // 달력이 다루는 일정 형태 — DB 일정 + 고정(생일·처음 만난 날) 가상 일정 공용.
 // virtual=true인 항목은 읽기 전용(수정·삭제 불가).
 type Anniversary = CalendarAnniversary;
 
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const DAY_MS = 86_400_000;
 const QUERY_KEY = ["anniversaries"] as const;
-
-async function fetchAnniversaries(): Promise<Anniversary[]> {
-  const res = await fetch("/api/anniversaries");
-  if (!res.ok) throw new Error("일정을 불러오지 못했습니다.");
-  const data: { anniversaries: Anniversary[] } = await res.json();
-  return data.anniversaries;
-}
-
-async function fetchMembers(): Promise<FixedMember[]> {
-  const res = await fetch("/api/members");
-  if (!res.ok) throw new Error("회원 정보를 불러오지 못했습니다.");
-  const data: { members: FixedMember[] } = await res.json();
-  return data.members;
-}
 
 async function errorMessage(res: Response): Promise<string> {
   const body: unknown = await res.json().catch(() => null);
@@ -46,28 +36,15 @@ async function errorMessage(res: Response): Promise<string> {
   return "처리에 실패했습니다.";
 }
 
-// 저장된 날짜(UTC 자정)에서 yyyy-mm-dd(요일) 표기
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
-}
-
 // D-day: 매년 반복이면 다음 주기까지, 1회성이면 지난 경우 D+N
 function formatDday(iso: string, yearly: boolean, todayMs: number): string {
   const d = new Date(iso);
   const month = d.getUTCMonth();
   const day = d.getUTCDate();
-  const today = new Date(todayMs);
 
   if (yearly) {
-    let next = new Date(today.getFullYear(), month, day);
-    if (next.getTime() < todayMs) {
-      next = new Date(today.getFullYear() + 1, month, day);
-    }
-    const r = Math.round((next.getTime() - todayMs) / DAY_MS);
+    const next = nextYearlyOccurrence(month, day, todayMs).getTime();
+    const r = Math.round((next - todayMs) / DAY_MS);
     return r === 0 ? "D-DAY" : `D-${r}`;
   }
 
@@ -123,14 +100,14 @@ function rangeLabel(a: Anniversary): string | null {
 
 // 리스트 날짜 표기 — 기간이면 "시작 ~ 종료"(같은 해면 종료는 월-일만)
 function formatRange(a: Anniversary): string {
-  if (!a.endDate) return formatDate(a.date);
+  if (!a.endDate) return formatYmdWeekday(a.date);
   const s = ymdFromIso(a.date);
   const e = ymdFromIso(a.endDate);
   const endStr =
     s.y === e.y
       ? `${String(e.m + 1).padStart(2, "0")}-${String(e.d).padStart(2, "0")}(${WEEKDAYS[new Date(a.endDate).getUTCDay()]})`
-      : formatDate(a.endDate);
-  return `${formatDate(a.date)} ~ ${endStr}`;
+      : formatYmdWeekday(a.endDate);
+  return `${formatYmdWeekday(a.date)} ~ ${endStr}`;
 }
 
 // D-day 표기 — 기간 중(오늘이 시작~종료 사이)이면 "진행 중", 아니면 시작일 기준 D-day
@@ -337,10 +314,13 @@ export function AnniversarySection() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // 클라이언트 1차 검증 — 서버(Zod)에서도 막지만 즉시 피드백 + 잘못된 값 전송 방지
+      if (!title.trim()) throw new Error("제목을 입력하세요.");
+      if (!date) throw new Error("날짜를 입력하세요.");
       if (isRange && !endDate) throw new Error("종료일을 입력하세요.");
       // 연일이면 기간(endDate) + 매년 반복 false, 아니면 단일일.
       const payload = {
-        title,
+        title: title.trim(),
         date,
         endDate: isRange ? endDate || null : null,
         yearly: isRange ? false : yearly,

@@ -3,50 +3,19 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCalendarStore } from "@/lib/calendar-store";
-import { yearlyJumpDate } from "@/lib/calendar-date";
+import { fetchMembers } from "@/lib/calendar-api";
+import {
+  DAY_MS,
+  formatYmdWeekday,
+  nextYearlyOccurrence,
+  yearlyJumpDate,
+} from "@/lib/calendar-date";
 
-type Member = {
-  id: number;
-  username: string;
-  displayName: string | null;
-  birthday: string | null; // ISO 문자열 또는 null
-};
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const DAY_MS = 86_400_000;
-
-async function fetchMembers(): Promise<Member[]> {
-  const res = await fetch("/api/members");
-  if (!res.ok) throw new Error("회원 정보를 불러오지 못했습니다.");
-  const data: { members: Member[] } = await res.json();
-  return data.members;
-}
-
-// 저장된 생일(UTC 자정)에서 yyyy-mm-dd(요일) 표기
-function formatBirthday(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
-}
-
-// 다음 생일 발생일(로컬). 오늘이 생일이면 오늘. (D-day·달력 점프 공용)
-function nextBirthday(iso: string, todayMs: number): Date {
-  const bd = new Date(iso);
-  const month = bd.getUTCMonth();
-  const day = bd.getUTCDate();
-  const today = new Date(todayMs);
-  let next = new Date(today.getFullYear(), month, day);
-  if (next.getTime() < todayMs) {
-    next = new Date(today.getFullYear() + 1, month, day);
-  }
-  return next;
-}
-
-// 다음 생일까지 남은 일수(오늘 0시 기준). 오늘이 생일이면 0.
+// 저장된 생일(UTC 자정)에서 월/일 추출 — 다음 생일까지 남은 일수(오늘 0시 기준).
 function daysUntilBirthday(iso: string, todayMs: number): number {
-  return Math.round((nextBirthday(iso, todayMs).getTime() - todayMs) / DAY_MS);
+  const bd = new Date(iso);
+  const next = nextYearlyOccurrence(bd.getUTCMonth(), bd.getUTCDate(), todayMs);
+  return Math.round((next.getTime() - todayMs) / DAY_MS);
 }
 
 export function BirthdayList() {
@@ -88,7 +57,7 @@ export function BirthdayList() {
                 {name}님의 생일
               </span>
               <span className="text-sm font-light tracking-wide">
-                {bday !== null ? formatBirthday(bday) : "생일 미등록"}
+                {bday !== null ? formatYmdWeekday(bday) : "생일 미등록"}
               </span>
             </div>
             <span className="text-2xl font-normal tabular-nums text-text">
