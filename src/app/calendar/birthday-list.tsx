@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCalendarStore } from "@/lib/calendar-store";
+import { yearlyJumpDate } from "@/lib/calendar-date";
 
 type Member = {
   id: number;
@@ -104,12 +105,17 @@ export function BirthdayList() {
         return (
           <li key={m.id}>
             {bday !== null ? (
-              // 누르면 달력으로 넘어가 다음 생일 날짜를 선택
+              // 누르면 달력으로 넘어가 생일 날짜를 선택(같은 달이면 올해로 → 오늘과 함께 보임)
               <button
                 type="button"
                 onClick={() => {
-                  const d = nextBirthday(bday, todayMs);
-                  jumpToDate(d.getFullYear(), d.getMonth(), d.getDate());
+                  const b = new Date(bday);
+                  const t = yearlyJumpDate(
+                    b.getUTCMonth(),
+                    b.getUTCDate(),
+                    todayMs
+                  );
+                  jumpToDate(t.y, t.m, t.d);
                 }}
                 className={`${rowClass} transition-colors hover:bg-bg`}
               >

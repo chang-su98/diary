@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCalendarStore } from "@/lib/calendar-store";
+import { yearlyJumpDate } from "@/lib/calendar-date";
 
 // 매년 반복 일정을 생일 D-day 목록 아래에 같은 스타일로 표시한다.
 // 일정 쿼리(["anniversaries"])를 AnniversarySection과 공유 → 중복 fetch 없음.
@@ -75,12 +76,17 @@ export function YearlyAnniversaries() {
         const remaining = Math.round((nextMs - todayMs) / DAY_MS);
         return (
           <li key={a.id}>
-            {/* 누르면 달력으로 넘어가 다음 발생 날짜를 선택 */}
+            {/* 누르면 달력으로 넘어가 그 일정 날짜를 선택(같은 달이면 올해로 → 오늘과 함께 보임) */}
             <button
               type="button"
               onClick={() => {
-                const d = new Date(nextMs);
-                jumpToDate(d.getFullYear(), d.getMonth(), d.getDate());
+                const ev = new Date(a.date);
+                const t = yearlyJumpDate(
+                  ev.getUTCMonth(),
+                  ev.getUTCDate(),
+                  todayMs
+                );
+                jumpToDate(t.y, t.m, t.d);
               }}
               className="flex w-full items-center justify-between gap-3 border-b border-line py-4 text-left transition-colors hover:bg-bg"
             >
