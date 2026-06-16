@@ -104,6 +104,7 @@ function GalleryTile({
         src={rawUrl(photo.id)}
         alt=""
         loading="lazy"
+        decoding="async"
         draggable={false}
         ref={(el) => {
           // 이미 캐시되어 로드 완료면 트랜지션 없이 즉시 표시(스크롤 복귀 시 재fade 방지)

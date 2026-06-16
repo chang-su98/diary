@@ -101,7 +101,12 @@ export async function GET(req: NextRequest) {
     }
 
     const holidays = await getYearMap(key, year);
-    return NextResponse.json({ holidays });
+    // 공휴일은 앱에서 변경되지 않는 정적 데이터 → 브라우저에 길게 캐시(연도별 URL).
+    // (앱 내 변경/무효화 대상이 아니므로 HTTP 캐시가 invalidate를 막을 일이 없음)
+    return NextResponse.json(
+      { holidays },
+      { headers: { "Cache-Control": "private, max-age=2592000" } } // 30일
+    );
   } catch (error) {
     console.error("[GET /api/holidays]", error);
     return NextResponse.json({ error: "서버 오류가 발생했습니다." }, { status: 500 });

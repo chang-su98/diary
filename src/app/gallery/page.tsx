@@ -10,27 +10,28 @@ export default async function GalleryPage() {
   const session = await getSession();
   if (!session) redirect("/login"); // proxy로도 보호되지만 방어적
 
-  // 첫 페이지만 조회 — 나머지는 클라이언트에서 스크롤 시 추가 로드(무한 스크롤).
-  // base64 data가 커서 전부 한 번에 내려주면 초기 로딩이 느려지는 문제 완화.
-  const photos = await prisma.photo.findMany({
-    orderBy: { id: "desc" }, // id desc = 최신순(autoincrement), 커서와 일치
-    take: PHOTO_PAGE_SIZE,
-    select: {
-      id: true, // 이미지는 /api/photos/[id]/raw 로 서빙 — 메타만 내려보냄
-      width: true,
-      height: true,
-      // 상세 모달의 등록자 표시용 — author는 삭제 시 null
-      author: { select: { username: true, displayName: true, avatar: true } },
-    },
-  });
+  // 첫 페이지 사진 + 현재 사용자를 병렬 조회(서로 독립 → 워터폴 제거).
+  // 첫 페이지만 조회하고 나머지는 클라이언트 무한 스크롤로 추가 로드한다.
+  const [photos, me] = await Promise.all([
+    prisma.photo.findMany({
+      orderBy: { id: "desc" }, // id desc = 최신순(autoincrement), 커서와 일치
+      take: PHOTO_PAGE_SIZE,
+      select: {
+        id: true, // 이미지는 /api/photos/[id]/raw 로 서빙 — 메타만 내려보냄
+        width: true,
+        height: true,
+        // 상세 모달의 등록자 표시용 — author는 삭제 시 null
+        author: { select: { username: true, displayName: true, avatar: true } },
+      },
+    }),
+    // 업로드 직후 낙관적 추가(스토어)에 등록자로 표시할 현재 사용자
+    prisma.user.findUnique({
+      where: { id: Number(session.sub) },
+      select: { username: true, displayName: true, avatar: true },
+    }),
+  ]);
   const initialCursor =
     photos.length === PHOTO_PAGE_SIZE ? photos[photos.length - 1].id : null;
-
-  // 업로드 직후 낙관적 추가(스토어)에 등록자로 표시할 현재 사용자
-  const me = await prisma.user.findUnique({
-    where: { id: Number(session.sub) },
-    select: { username: true, displayName: true, avatar: true },
-  });
 
   return (
     <main className="relative mx-auto w-full max-w-md px-4 pt-[calc(2rem+var(--safe-top))] pb-[calc(4rem+var(--safe-bottom))]">

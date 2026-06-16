@@ -205,6 +205,8 @@ export default async function Home() {
                 <img
                   src={rawUrl(t.id)}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="size-full object-cover"
                 />
               </Link>

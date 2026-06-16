@@ -48,9 +48,9 @@ export function HomeCalendar() {
   const holidays = useHolidays(today.y);
 
   // 데이터 로드 전엔 자리만 확보 — 그리드(오늘 의존)를 SSR에 넣지 않아 하이드레이션 안전.
-  // 로드 후 컨테이너 min-h와 동일 높이를 잡아 레이아웃 점프(CLS)를 줄인다.
+  // 그리드 정도 높이만 잡아 로딩 중 과도한 빈 공간 없이 점프를 줄인다.
   if (!anniversaries || !members) {
-    return <div className="min-h-[420px]" aria-hidden />;
+    return <div className="min-h-[260px]" aria-hidden />;
   }
 
   // DB 일정 + 고정(생일·처음 만난 날) 가상 일정
@@ -85,7 +85,7 @@ export function HomeCalendar() {
       : null;
 
   return (
-    <div className="min-h-[420px] px-1">
+    <div className="px-1">
       <p className="mb-3.5 text-center text-[0.85rem] tracking-[0.28em] text-text">
         {today.y} · {MONTHS[today.m]}
       </p>
