@@ -25,11 +25,15 @@ export function CalendarSwiper({
     setActive(idx); // 이벤트 핸들러 내 setState — 동일 값이면 React가 무시
   }
 
-  // 외부 점프 신호 — nonce가 0보다 클 때(=실제 점프 발생)만 해당 슬라이드로 스크롤.
+  // 외부 점프 신호 — 마운트 이후 nonce가 "바뀔 때만" 해당 슬라이드로 스크롤.
+  // (점프 스토어 nonce는 라우트 이동 후에도 살아있어, 재진입 시 마운트값으로 스크롤하면
+  //  안 됨 → 마운트 시점 nonce를 seen으로 잡아두고 그보다 커질 때만 반응. 항상 1섹션 시작)
   const jumpNonce = jump?.nonce ?? 0;
   const jumpIndex = jump?.index ?? 0;
+  const seenNonce = useRef(jumpNonce);
   useEffect(() => {
-    if (jumpNonce <= 0) return;
+    if (jumpNonce === seenNonce.current) return;
+    seenNonce.current = jumpNonce;
     const el = ref.current;
     if (!el) return;
     el.scrollTo({ left: jumpIndex * el.clientWidth, behavior: "smooth" });
