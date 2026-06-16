@@ -1,7 +1,10 @@
-// 선택한 사진을 기기에 저장한다.
-// 1순위: Web Share API(파일 공유) — 네이티브 "갤러리에 저장" 시트(안드로이드·iOS 모두).
-// 폴백: 브라우저 직접 다운로드(다운로드 폴더 → 갤럭시 갤러리의 '다운로드' 앨범).
-// 웹앱은 기기 갤러리에 소리 없이 쓸 수 없어, 위 두 경로가 사실상 최선이다.
+// 선택한 사진을 기기에 저장한다. 플랫폼별로 경로가 다르다:
+// - iOS: Web Share API(파일) → 네이티브 시트의 "이미지 저장"이 사진 앱에 바로 저장.
+// - Android: 공유 시트에 "사진첩/갤러리에 저장" 액션이 없고 앱으로 공유만 가능하므로
+//   곧바로 직접 다운로드한다. 파일은 Downloads 폴더에 저장되고 갤러리(삼성 갤러리 등)의
+//   'Download' 앨범에 색인되어 나타난다.
+// - 그 외/데스크톱: Web Share 가능하면 시도, 아니면 직접 다운로드.
+// 웹앱은 기기 갤러리(DCIM)에 소리 없이 쓸 수 없어, 위 경로가 사실상 최선이다.
 
 // 그리드·모달과 동일한 원본 서빙 URL(브라우저 캐시 공유)
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
@@ -62,12 +65,15 @@ export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
   // 거부될 수 있다. 그리드·모달에서 이미 본 사진은 캐시 적중이라 보통 즉시 resolve된다.
   const files = await fetchFiles(ids);
 
-  // 1) Web Share API(파일) — 네이티브 "사진/갤러리에 저장" 시트
+  // Android는 공유 시트에 갤러리 저장 액션이 없어 Web Share를 건너뛰고 바로 다운로드한다.
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  // 1) Web Share API(파일) — 네이티브 "사진/갤러리에 저장" 시트 (Android 제외)
   // iOS 홈화면 PWA(standalone)에서는 navigator.share는 동작하는데 canShare가
   // undefined인 경우가 있다. canShare로만 막으면 iOS가 다운로드 폴백으로 빠져
   // 파일앱에 한 장만 저장된다 → canShare는 함수일 때만 확인하고, 없으면 일단 시도.
   const nav = navigator as ShareNavigator;
-  if (typeof nav.share === "function") {
+  if (!isAndroid && typeof nav.share === "function") {
     const canShareFiles =
       typeof nav.canShare === "function" ? nav.canShare({ files }) : true;
     if (canShareFiles) {
@@ -84,8 +90,9 @@ export async function savePhotosToDevice(ids: number[]): Promise<SaveOutcome> {
     }
   }
 
-  // 2) 폴백 — 브라우저 직접 다운로드. 모바일은 보통 제스처당 1건만 허용하므로
-  //    각 클릭 사이에 짧은 지연을 둬 데스크톱 다중 다운로드 차단을 완화한다.
+  // 2) 직접 다운로드 — Android 기본 경로이자 그 외 플랫폼의 폴백.
+  //    Downloads 폴더로 저장 → 갤러리 'Download' 앨범에 노출. 모바일은 보통 제스처당
+  //    1건만 허용하므로 각 클릭 사이에 짧은 지연을 둬 다중 다운로드 차단을 완화한다.
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const url = URL.createObjectURL(file);
