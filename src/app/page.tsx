@@ -40,11 +40,14 @@ export default async function Home() {
   const session = await getSession();
   if (!session) redirect("/login"); // proxy로도 보호되지만 방어적
 
-  // 두 사람 이름 + 최근 사진(히어로 1 + 썸네일 3)을 병렬 조회
-  const [users, photos] = await Promise.all([
+  // 이름·최근 사진 + view 캘린더용 회원·일정을 병렬 조회.
+  // 캘린더 데이터를 서버에서 미리 받아 HomeCalendar에 initialData로 넘기면
+  // 클라이언트 fetch 왕복이 사라져 메인 캘린더가 즉시 그려진다.
+  const [users, photos, anniversaryRows] = await Promise.all([
     prisma.user.findMany({
       orderBy: { id: "asc" },
       select: {
+        id: true,
         displayName: true,
         username: true,
         avatar: true,
@@ -56,7 +59,29 @@ export default async function Home() {
       take: 6,
       select: { id: true },
     }),
+    prisma.anniversary.findMany({
+      orderBy: { date: "asc" },
+      include: { author: { select: { displayName: true, username: true } } },
+    }),
   ]);
+
+  // 클라이언트(useQuery) 응답과 동일한 형태로 직렬화(Date → ISO 문자열)
+  const initialMembers = users.map((u) => ({
+    id: u.id,
+    username: u.username,
+    displayName: u.displayName,
+    birthday: u.birthday ? u.birthday.toISOString() : null,
+  }));
+  const initialAnniversaries = anniversaryRows.map((a) => ({
+    id: a.id,
+    title: a.title,
+    date: a.date.toISOString(),
+    endDate: a.endDate ? a.endDate.toISOString() : null,
+    yearly: a.yearly,
+    author: a.author
+      ? { displayName: a.author.displayName, username: a.author.username }
+      : null,
+  }));
 
   // 표시 이름 + username(=인스타 아이디) + 프로필. 폐쇄형 2인 앱.
   const people = users.length
@@ -120,7 +145,10 @@ export default async function Home() {
         <p className="mb-4 text-center text-sm tracking-[0.3em] text-text">
           CALENDAR
         </p>
-        <HomeCalendar />
+        <HomeCalendar
+          initialAnniversaries={initialAnniversaries}
+          initialMembers={initialMembers}
+        />
       </Reveal>
 
       {/* ABOUT US — 두 사람 프로필 카드(아바타·이름·생일·인스타) */}

@@ -33,8 +33,25 @@ export function useCountUp(getTarget: () => number): number {
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     };
 
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
+    const start = () => {
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    // 스플래시(콜드 스타트)가 끝난 뒤 카운트업 시작 — 스플래시 뒤에서 끝나버리지 않게.
+    // 이미 끝났으면(클라이언트 내비게이션 등) 즉시 시작.
+    let removeListener: (() => void) | undefined;
+    if (document.documentElement.classList.contains("splash-done")) {
+      start();
+    } else {
+      const onDone = () => start();
+      window.addEventListener("splash-done", onDone, { once: true });
+      removeListener = () => window.removeEventListener("splash-done", onDone);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      removeListener?.();
+    };
   }, [getTarget]);
 
   return value;

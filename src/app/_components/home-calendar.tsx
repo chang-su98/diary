@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAnniversaries, fetchMembers } from "@/lib/calendar-api";
-import { buildFixedAnniversaries } from "@/lib/fixed-anniversaries";
+import {
+  buildFixedAnniversaries,
+  type CalendarAnniversary,
+  type FixedMember,
+} from "@/lib/fixed-anniversaries";
 import {
   dayInMonth,
   formatDday,
@@ -26,7 +30,17 @@ const MONTHS = [
   "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
 ] as const;
 
-export function HomeCalendar() {
+// 클라이언트 마운트 후에만 true — SSR/하이드레이션 첫 렌더에선 false.
+// 그리드는 today(서버 UTC vs 클라 KST) 의존이라 SSR하면 불일치 → 클라에서만 렌더.
+const subscribeNoop = () => () => {};
+
+export function HomeCalendar({
+  initialAnniversaries,
+  initialMembers,
+}: {
+  initialAnniversaries: CalendarAnniversary[];
+  initialMembers: FixedMember[];
+}) {
   // 오늘(로컬 자정) 1회 고정 — 렌더 중 시간 읽기(purity 위반) 회피.
   // (탭을 열어둔 채 자정을 넘기면 어제로 고정되나, 캘린더 전반의 의도된 트레이드오프)
   const [today] = useState(() => {
@@ -35,21 +49,31 @@ export function HomeCalendar() {
   });
   // 선택한 '일'(이번 달 한정). null이면 이번 달 전체 리스트.
   const [selected, setSelected] = useState<number | null>(null);
+  // 클라이언트 여부 — useSyncExternalStore로 하이드레이션 안전하게 감지(setState-in-effect 회피)
+  const isClient = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
 
+  // 서버에서 받은 데이터를 initialData로 — 클라이언트 fetch 왕복 없이 즉시 사용.
+  // (변경 시 mutation이 invalidate하고, staleTime 내엔 재요청 안 함)
   const { data: anniversaries } = useQuery({
     queryKey: ["anniversaries"],
     queryFn: fetchAnniversaries,
+    initialData: initialAnniversaries,
   });
   const { data: members } = useQuery({
     queryKey: ["members"],
     queryFn: fetchMembers,
+    initialData: initialMembers,
   });
   // 공휴일(천문연 API) — 이번 달이 속한 연도. 미로딩 시 빈 맵(일요일은 그래도 빨강).
   const holidays = useHolidays(today.y);
 
-  // 데이터 로드 전엔 자리만 확보 — 그리드(오늘 의존)를 SSR에 넣지 않아 하이드레이션 안전.
-  // 그리드 정도 높이만 잡아 로딩 중 과도한 빈 공간 없이 점프를 줄인다.
-  if (!anniversaries || !members) {
+  // 그리드는 클라이언트에서만 렌더(today 하이드레이션 불일치 회피). 데이터는 이미
+  // initialData로 있어 클라 첫 렌더에서 바로 그려진다(네트워크 대기 없음).
+  if (!isClient) {
     return <div className="min-h-[260px]" aria-hidden />;
   }
 
