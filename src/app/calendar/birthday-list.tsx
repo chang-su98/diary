@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCalendarStore } from "@/lib/calendar-store";
 
 type Member = {
   id: number;
@@ -29,8 +30,8 @@ function formatBirthday(iso: string): string {
   return `${y}-${m}-${day}(${WEEKDAYS[d.getUTCDay()]})`;
 }
 
-// 다음 생일까지 남은 일수(오늘 0시 기준). 오늘이 생일이면 0.
-function daysUntilBirthday(iso: string, todayMs: number): number {
+// 다음 생일 발생일(로컬). 오늘이 생일이면 오늘. (D-day·달력 점프 공용)
+function nextBirthday(iso: string, todayMs: number): Date {
   const bd = new Date(iso);
   const month = bd.getUTCMonth();
   const day = bd.getUTCDate();
@@ -39,7 +40,12 @@ function daysUntilBirthday(iso: string, todayMs: number): number {
   if (next.getTime() < todayMs) {
     next = new Date(today.getFullYear() + 1, month, day);
   }
-  return Math.round((next.getTime() - todayMs) / DAY_MS);
+  return next;
+}
+
+// 다음 생일까지 남은 일수(오늘 0시 기준). 오늘이 생일이면 0.
+function daysUntilBirthday(iso: string, todayMs: number): number {
+  return Math.round((nextBirthday(iso, todayMs).getTime() - todayMs) / DAY_MS);
 }
 
 export function BirthdayList() {
@@ -48,6 +54,8 @@ export function BirthdayList() {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
   });
+
+  const jumpToDate = useCalendarStore((s) => s.jumpToDate);
 
   const { data: members, isPending, isError } = useQuery({
     queryKey: ["members"],
@@ -69,28 +77,47 @@ export function BirthdayList() {
     <ul className="flex flex-col pt-2">
       {members.map((m) => {
         const name = m.displayName ?? m.username;
+        const bday = m.birthday; // 클로저에서 narrowing 유지용
         const remaining =
-          m.birthday !== null ? daysUntilBirthday(m.birthday, todayMs) : null;
-        return (
-          <li
-            key={m.id}
-            className="flex items-center justify-between gap-3 border-b border-line py-4"
-          >
+          bday !== null ? daysUntilBirthday(bday, todayMs) : null;
+        const inner = (
+          <>
             <div className="flex flex-col gap-1">
               <span className="text-xs tracking-[0.15em] text-text-muted">
                 {name}님의 생일
               </span>
               <span className="text-sm font-light tracking-wide">
-                {m.birthday !== null ? formatBirthday(m.birthday) : "생일 미등록"}
+                {bday !== null ? formatBirthday(bday) : "생일 미등록"}
               </span>
             </div>
             <span className="text-2xl font-normal tabular-nums text-text">
-              {m.birthday === null
+              {bday === null
                 ? "--"
                 : remaining === 0
                   ? "D-DAY"
                   : `D-${remaining}`}
             </span>
+          </>
+        );
+        const rowClass =
+          "flex w-full items-center justify-between gap-3 border-b border-line py-4 text-left";
+        return (
+          <li key={m.id}>
+            {bday !== null ? (
+              // 누르면 달력으로 넘어가 다음 생일 날짜를 선택
+              <button
+                type="button"
+                onClick={() => {
+                  const d = nextBirthday(bday, todayMs);
+                  jumpToDate(d.getFullYear(), d.getMonth(), d.getDate());
+                }}
+                className={`${rowClass} transition-colors hover:bg-bg`}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div className={rowClass}>{inner}</div>
+            )}
           </li>
         );
       })}

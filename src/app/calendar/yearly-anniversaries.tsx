@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCalendarStore } from "@/lib/calendar-store";
 
 // 매년 반복 일정을 생일 D-day 목록 아래에 같은 스타일로 표시한다.
 // 일정 쿼리(["anniversaries"])를 AnniversarySection과 공유 → 중복 fetch 없음.
@@ -51,6 +52,8 @@ export function YearlyAnniversaries() {
     return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
   });
 
+  const jumpToDate = useCalendarStore((s) => s.jumpToDate);
+
   const { data } = useQuery({
     queryKey: ["anniversaries"],
     queryFn: fetchAnniversaries,
@@ -68,28 +71,34 @@ export function YearlyAnniversaries() {
   return (
     <ul className="flex flex-col">
       {items.map((a) => {
-        const remaining = Math.round(
-          (nextOccurrenceMs(a.date, todayMs) - todayMs) / DAY_MS
-        );
+        const nextMs = nextOccurrenceMs(a.date, todayMs);
+        const remaining = Math.round((nextMs - todayMs) / DAY_MS);
         return (
-          <li
-            key={a.id}
-            className="flex items-center justify-between gap-3 border-b border-line py-4"
-          >
-            <div className="flex flex-col gap-1">
-              <span className="text-xs tracking-[0.15em] text-text-muted">
-                {a.title}
-                {a.author
-                  ? ` · ${a.author.displayName ?? a.author.username}`
-                  : ""}
+          <li key={a.id}>
+            {/* 누르면 달력으로 넘어가 다음 발생 날짜를 선택 */}
+            <button
+              type="button"
+              onClick={() => {
+                const d = new Date(nextMs);
+                jumpToDate(d.getFullYear(), d.getMonth(), d.getDate());
+              }}
+              className="flex w-full items-center justify-between gap-3 border-b border-line py-4 text-left transition-colors hover:bg-bg"
+            >
+              <div className="flex flex-col gap-1">
+                <span className="text-xs tracking-[0.15em] text-text-muted">
+                  {a.title}
+                  {a.author
+                    ? ` · ${a.author.displayName ?? a.author.username}`
+                    : ""}
+                </span>
+                <span className="text-sm font-light tracking-wide">
+                  {formatDate(a.date)}
+                </span>
+              </div>
+              <span className="text-2xl font-normal tabular-nums text-text">
+                {remaining === 0 ? "D-DAY" : `D-${remaining}`}
               </span>
-              <span className="text-sm font-light tracking-wide">
-                {formatDate(a.date)}
-              </span>
-            </div>
-            <span className="text-2xl font-normal tabular-nums text-text">
-              {remaining === 0 ? "D-DAY" : `D-${remaining}`}
-            </span>
+            </button>
           </li>
         );
       })}

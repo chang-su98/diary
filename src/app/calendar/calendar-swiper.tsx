@@ -1,12 +1,20 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
  * CSS scroll-snap 기반 좌우 스와이퍼. 슬라이드를 받아 가로 스냅으로 넘기고
  * 하단에 현재 위치 점(dots)을 표시한다. (라이브러리 미사용)
+ *
+ * jump: 외부에서 특정 슬라이드로 이동시키는 신호. nonce가 바뀔 때마다 index로 스크롤.
  */
-export function CalendarSwiper({ slides }: { slides: ReactNode[] }) {
+export function CalendarSwiper({
+  slides,
+  jump,
+}: {
+  slides: ReactNode[];
+  jump?: { index: number; nonce: number };
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
@@ -16,6 +24,16 @@ export function CalendarSwiper({ slides }: { slides: ReactNode[] }) {
     const idx = Math.round(el.scrollLeft / el.clientWidth);
     setActive(idx); // 이벤트 핸들러 내 setState — 동일 값이면 React가 무시
   }
+
+  // 외부 점프 신호 — nonce가 0보다 클 때(=실제 점프 발생)만 해당 슬라이드로 스크롤.
+  const jumpNonce = jump?.nonce ?? 0;
+  const jumpIndex = jump?.index ?? 0;
+  useEffect(() => {
+    if (jumpNonce <= 0) return;
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTo({ left: jumpIndex * el.clientWidth, behavior: "smooth" });
+  }, [jumpNonce, jumpIndex]);
 
   function goTo(i: number) {
     const el = ref.current;

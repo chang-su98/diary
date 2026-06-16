@@ -4,15 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "vaul";
 import { useHolidays, holidayKey } from "@/lib/use-holidays";
+import { useCalendarStore } from "@/lib/calendar-store";
+import {
+  buildFixedAnniversaries,
+  type CalendarAnniversary,
+  type FixedMember,
+} from "@/lib/fixed-anniversaries";
 
-type Anniversary = {
-  id: number;
-  title: string;
-  date: string; // ISO 문자열(시작일)
-  endDate: string | null; // 기간 종료일(없으면 단일일)
-  yearly: boolean;
-  author: { displayName: string | null; username: string } | null;
-};
+// 달력이 다루는 일정 형태 — DB 일정 + 고정(생일·처음 만난 날) 가상 일정 공용.
+// virtual=true인 항목은 읽기 전용(수정·삭제 불가).
+type Anniversary = CalendarAnniversary;
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 const DAY_MS = 86_400_000;
@@ -23,6 +24,13 @@ async function fetchAnniversaries(): Promise<Anniversary[]> {
   if (!res.ok) throw new Error("일정을 불러오지 못했습니다.");
   const data: { anniversaries: Anniversary[] } = await res.json();
   return data.anniversaries;
+}
+
+async function fetchMembers(): Promise<FixedMember[]> {
+  const res = await fetch("/api/members");
+  if (!res.ok) throw new Error("회원 정보를 불러오지 못했습니다.");
+  const data: { members: FixedMember[] } = await res.json();
+  return data.members;
 }
 
 async function errorMessage(res: Response): Promise<string> {
@@ -75,20 +83,29 @@ function ymdFromIso(iso: string): { y: number; m: number; d: number } {
   return { y: dt.getUTCFullYear(), m: dt.getUTCMonth(), d: dt.getUTCDate() };
 }
 
-// 다음 발생 시각(로컬 자정 ms) — 매년 반복은 다음 주기, 1회성은 그 날짜. 정렬·필터용.
-function nextOccurrenceMs(
+// 표시 중인 달(y,m)에 발생하는 일정인지 — 매년 반복은 월 일치, 1회성은 그 연·월,
+// 기간은 달과 겹치면 포함. (날짜 미선택 시 그달 일정 목록 필터용)
+function occursInMonth(
   iso: string,
+  endIso: string | null,
   yearly: boolean,
-  todayMs: number
-): number {
-  const { y, m, d } = ymdFromIso(iso);
-  if (yearly) {
-    const ty = new Date(todayMs).getFullYear();
-    let next = new Date(ty, m, d).getTime();
-    if (next < todayMs) next = new Date(ty + 1, m, d).getTime();
-    return next;
-  }
-  return new Date(y, m, d).getTime();
+  y: number,
+  m: number
+): boolean {
+  const s = ymdFromIso(iso);
+  if (yearly) return s.m === m;
+  if (!endIso) return s.y === y && s.m === m;
+  const monthStart = new Date(y, m, 1).getTime();
+  const monthEnd = new Date(y, m + 1, 0).getTime();
+  return localMs(iso) <= monthEnd && localMs(endIso) >= monthStart;
+}
+
+// 그 달 안에서의 정렬용 일자 — 기간이 이전 달부터 이어진 경우엔 1일로.
+function dayInMonth(iso: string, y: number, m: number): number {
+  const s = ymdFromIso(iso);
+  if (s.m === m && s.y === y) return s.d; // 그달 시작(단일/기간)
+  if (s.m === m) return s.d; // 매년 반복(연도는 달라도 월 일치)
+  return 1; // 이전 달부터 이어진 기간
 }
 
 // 로컬 자정 ms — UTC 저장 날짜의 연/월/일을 로컬 날짜로 취급(비교·계산용)
@@ -250,10 +267,29 @@ export function AnniversarySection() {
     m: number;
     d: number;
   } | null>(null);
+  // 슬라이드1(생일·기념일)에서 항목을 누르면 그 날짜로 점프 — 스토어 nonce 변화에
+  // 반응해 표시 달(view)과 선택 날짜(selected)를 갱신. setState는 구독 콜백 내에서만
+  // 호출(렌더/이펙트 본문이 아님)이라 컴파일러 set-state-in-effect 규칙에 걸리지 않는다.
+  useEffect(
+    () =>
+      useCalendarStore.subscribe((s, prev) => {
+        if (s.nonce === prev.nonce || s.target === null) return;
+        const { y, m, d } = s.target;
+        setDir(1); // 점프는 앞으로 넘기는 애니메이션으로 통일(방향은 표시상 의미 없음)
+        setView({ y, m });
+        setSelected({ y, m, d });
+      }),
+    []
+  );
 
   const { data: items, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchAnniversaries,
+  });
+  // 생일 표시용 회원 정보(BirthdayList와 ["members"] 캐시 공유 → 중복 fetch 없음)
+  const { data: members } = useQuery({
+    queryKey: ["members"],
+    queryFn: fetchMembers,
   });
 
   // 공휴일(천문연 API) — 표시 중인 연도 + 선택 날짜 연도(다를 수 있음). 연도별 캐시.
@@ -355,7 +391,9 @@ export function AnniversarySection() {
 
   // ── 달력/리스트 파생값 ───────────────────────────────
   const td = new Date(todayMs);
-  const list = items ?? [];
+  // DB 일정 + 고정(생일·처음 만난 날) 가상 일정. 가상 항목은 매년 반복 읽기 전용으로
+  // 그리드 마커·리스트에 같이 표시된다(클릭해도 수정 폼은 열리지 않음).
+  const list = [...(items ?? []), ...buildFixedAnniversaries(members ?? [])];
 
   // 표시 중인 달에 일정이 있는 날 → 날짜별 항목(마커 + 선택 보기). 매년 반복은
   // 매년 그 월/일에, 1회성은 해당 연·월에만(지난 것도 마커 유지).
@@ -394,8 +432,8 @@ export function AnniversarySection() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // 리스트: 날짜 선택 시 그 날 일정(지난·매년 포함), 아니면 지난 1회성 제외 +
-  // 매년 반복 포함 → 다가오는 순(D-day 오름차순).
+  // 리스트: 날짜 선택 시 그 날 일정(지난·매년 포함), 아니면 표시 중인 달의 일정만
+  // → 그달 안의 일자 오름차순. (달을 넘기면 그 달 일정으로 갱신)
   const listItems = selected
     ? list.filter((a) => {
         const s = ymdFromIso(a.date);
@@ -406,16 +444,11 @@ export function AnniversarySection() {
         return selMs >= startMs && selMs <= endMs; // 기간이면 그 사이 날짜도 포함
       })
     : list
-        .filter((a) => {
-          if (a.yearly) return true;
-          // 완전히 지난 1회성(종료일 < 오늘)만 제외 — 기간이면 종료일 기준
-          const endMs = a.endDate ? localMs(a.endDate) : localMs(a.date);
-          return endMs >= todayMs;
-        })
+        .filter((a) => occursInMonth(a.date, a.endDate, a.yearly, view.y, view.m))
         .sort(
           (a, b) =>
-            nextOccurrenceMs(a.date, a.yearly, todayMs) -
-            nextOccurrenceMs(b.date, b.yearly, todayMs)
+            dayInMonth(a.date, view.y, view.m) -
+            dayInMonth(b.date, view.y, view.m)
         );
 
   function shiftMonth(delta: number) {
@@ -727,7 +760,7 @@ export function AnniversarySection() {
               {isSelectedToday ? " (TODAY)" : null}
             </>
           ) : (
-            "전체 일정"
+            `${view.m + 1}월 일정`
           )}
         </span>
         {selected && (
@@ -736,7 +769,7 @@ export function AnniversarySection() {
             onClick={() => setSelected(null)}
             className="text-xs tracking-[0.15em] text-text-muted transition-colors hover:text-text"
           >
-            전체 보기
+            {view.m + 1}월 일정
           </button>
         )}
       </div>
@@ -748,36 +781,48 @@ export function AnniversarySection() {
           {listItems.map((a) => {
             const dday = ddayDisplay(a, todayMs);
             const range = rangeLabel(a);
+            // 고정(가상) 일정은 읽기 전용 — 수정 폼을 열지 않는 정적 행으로 표시
+            const rowClass =
+              "flex w-full items-center justify-between gap-3 border-b border-line py-5 text-left";
+            const inner = (
+              <>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs tracking-[0.15em] text-text-muted">
+                    {a.title}
+                    {a.yearly ? " · 매년" : ""}
+                    {range ? ` · ${range}` : ""}
+                    {a.author
+                      ? ` · ${a.author.displayName ?? a.author.username}`
+                      : ""}
+                  </span>
+                  <span className="text-sm font-light tracking-wide">
+                    {formatRange(a)}
+                  </span>
+                </div>
+                <span
+                  className={`shrink-0 tabular-nums text-text ${
+                    dday === "진행 중"
+                      ? "text-base font-normal"
+                      : "text-3xl font-light"
+                  }`}
+                >
+                  {dday}
+                </span>
+              </>
+            );
             return (
               <li key={a.id}>
-                <button
-                  type="button"
-                  onClick={() => openEdit(a)}
-                  className="flex w-full items-center justify-between gap-3 border-b border-line py-5 text-left transition-colors hover:bg-bg"
-                >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs tracking-[0.15em] text-text-muted">
-                      {a.title}
-                      {a.yearly ? " · 매년" : ""}
-                      {range ? ` · ${range}` : ""}
-                      {a.author
-                        ? ` · ${a.author.displayName ?? a.author.username}`
-                        : ""}
-                    </span>
-                    <span className="text-sm font-light tracking-wide">
-                      {formatRange(a)}
-                    </span>
-                  </div>
-                  <span
-                    className={`shrink-0 tabular-nums text-text ${
-                      dday === "진행 중"
-                        ? "text-base font-normal"
-                        : "text-3xl font-light"
-                    }`}
+                {a.virtual ? (
+                  <div className={rowClass}>{inner}</div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(a)}
+                    className={`${rowClass} transition-colors hover:bg-bg`}
                   >
-                    {dday}
-                  </span>
-                </button>
+                    {inner}
+                  </button>
+                )}
               </li>
             );
           })}
