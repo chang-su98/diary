@@ -112,3 +112,78 @@ export function formatDday(
   if (r === 0) return "D-DAY";
   return r > 0 ? `D-${r}` : `D+${-r}`;
 }
+
+// 달 계산에 필요한 일정의 최소 형태(달력·메인 캘린더 공용).
+// id는 정렬 2차 키용 — 가상(고정) 일정은 음수 id라 같은 날이면 뒤로 보낸다.
+type OccurrenceLike = {
+  id: number;
+  date: string;
+  endDate: string | null;
+  yearly: boolean;
+};
+
+// 기간 일정 일자 순회 폭주 가드(~5.5년) — 비정상 데이터 방어. 단일 정의.
+const RANGE_GUARD = 2000;
+
+// 표시 중인 달(y,m)에 일정이 있는 '일' 집합(달력 마커용). 매년 반복은 그 월/일,
+// 1회성은 해당 연·월, 기간은 시작~종료 중 그 달에 속하는 각 날(setDate 순회로 DST 보정).
+export function markedDaysInMonth(
+  list: OccurrenceLike[],
+  y: number,
+  m: number
+): Set<number> {
+  const marks = new Set<number>();
+  for (const a of list) {
+    const s = ymdFromIso(a.date);
+    if (a.yearly) {
+      if (s.m === m) marks.add(s.d);
+    } else if (!a.endDate) {
+      if (s.y === y && s.m === m) marks.add(s.d);
+    } else {
+      const end = localMs(a.endDate);
+      const dt = new Date(localMs(a.date));
+      let guard = 0;
+      while (dt.getTime() <= end && guard < RANGE_GUARD) {
+        if (dt.getFullYear() === y && dt.getMonth() === m) marks.add(dt.getDate());
+        dt.setDate(dt.getDate() + 1);
+        guard++;
+      }
+    }
+  }
+  return marks;
+}
+
+// 표시 중인 달(y,m)에 발생하는 일정만, 그 달 안 일자 오름차순. (날짜 미선택 리스트)
+export function monthListItems<T extends OccurrenceLike>(
+  list: T[],
+  y: number,
+  m: number
+): T[] {
+  return list
+    .filter((a) => occursInMonth(a.date, a.endDate, a.yearly, y, m))
+    .sort((a, b) => {
+      const byDay = dayInMonth(a.date, y, m) - dayInMonth(b.date, y, m);
+      if (byDay !== 0) return byDay;
+      // 같은 날: 사용자 일정(양수 id) 먼저, 고정 가상 일정(음수 id) 뒤 → 결정적 순서
+      const av = a.id < 0 ? 1 : 0;
+      const bv = b.id < 0 ? 1 : 0;
+      return av - bv || a.id - b.id;
+    });
+}
+
+// 특정 날짜(y,m,d)의 일정 — 매년 반복은 월/일 일치, 1회성/기간은 그 날 포함. (날짜 선택 리스트)
+export function selectDayItems<T extends OccurrenceLike>(
+  list: T[],
+  y: number,
+  m: number,
+  d: number
+): T[] {
+  const selMs = new Date(y, m, d).getTime();
+  return list.filter((a) => {
+    const s = ymdFromIso(a.date);
+    if (a.yearly) return s.m === m && s.d === d;
+    const startMs = localMs(a.date);
+    const endMs = a.endDate ? localMs(a.endDate) : startMs;
+    return selMs >= startMs && selMs <= endMs; // 기간이면 그 사이 날짜도 포함
+  });
+}

@@ -13,11 +13,12 @@ import {
 import {
   DAY_MS,
   WEEKDAYS,
-  dayInMonth,
   formatDday,
   formatYmdWeekday,
   localMs,
-  occursInMonth,
+  markedDaysInMonth,
+  monthListItems,
+  selectDayItems,
   ymdFromIso,
 } from "@/lib/calendar-date";
 
@@ -324,34 +325,9 @@ export function AnniversarySection() {
   // 그리드 마커·리스트에 같이 표시된다(클릭해도 수정 폼은 열리지 않음).
   const list = [...(items ?? []), ...buildFixedAnniversaries(members ?? [])];
 
-  // 표시 중인 달에 일정이 있는 날 → 날짜별 항목(마커 + 선택 보기). 매년 반복은
-  // 매년 그 월/일에, 1회성은 해당 연·월에만(지난 것도 마커 유지).
-  const monthItemsByDay = new Map<number, Anniversary[]>();
-  const markDay = (day: number, a: Anniversary) => {
-    const arr = monthItemsByDay.get(day) ?? [];
-    arr.push(a);
-    monthItemsByDay.set(day, arr);
-  };
-  for (const a of list) {
-    const s = ymdFromIso(a.date);
-    if (a.yearly) {
-      if (s.m === view.m) markDay(s.d, a); // 매년 반복은 매년 그 월/일
-    } else if (!a.endDate) {
-      if (s.y === view.y && s.m === view.m) markDay(s.d, a);
-    } else {
-      // 기간(1회성) — 시작~종료의 각 날짜 중 표시 중인 달에 속하는 날 마킹.
-      // ms 누적 대신 setDate로 순회(DST 보정) + 비정상 데이터 폭주 가드(~5년).
-      const end = localMs(a.endDate);
-      const dt = new Date(localMs(a.date));
-      let guard = 0;
-      while (dt.getTime() <= end && guard < 2000) {
-        if (dt.getFullYear() === view.y && dt.getMonth() === view.m)
-          markDay(dt.getDate(), a);
-        dt.setDate(dt.getDate() + 1);
-        guard++;
-      }
-    }
-  }
+  // 표시 중인 달에 일정이 있는 '일' 집합(그리드 점 마커용). 매년/1회성/기간 처리는
+  // calendar-date.markedDaysInMonth가 담당(메인 캘린더와 동일 로직·가드 공유).
+  const markedDays = markedDaysInMonth(list, view.y, view.m);
 
   // 달력 셀: 앞 빈칸 + 1..말일 + 뒤 빈칸(주 단위 정렬)
   const firstWeekday = new Date(view.y, view.m, 1).getDay();
@@ -362,23 +338,10 @@ export function AnniversarySection() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   // 리스트: 날짜 선택 시 그 날 일정(지난·매년 포함), 아니면 표시 중인 달의 일정만
-  // → 그달 안의 일자 오름차순. (달을 넘기면 그 달 일정으로 갱신)
+  // → 그달 안의 일자 오름차순. (메인 캘린더와 동일 로직 공유)
   const listItems = selected
-    ? list.filter((a) => {
-        const s = ymdFromIso(a.date);
-        if (a.yearly) return s.m === selected.m && s.d === selected.d;
-        const selMs = new Date(selected.y, selected.m, selected.d).getTime();
-        const startMs = localMs(a.date);
-        const endMs = a.endDate ? localMs(a.endDate) : startMs;
-        return selMs >= startMs && selMs <= endMs; // 기간이면 그 사이 날짜도 포함
-      })
-    : list
-        .filter((a) => occursInMonth(a.date, a.endDate, a.yearly, view.y, view.m))
-        .sort(
-          (a, b) =>
-            dayInMonth(a.date, view.y, view.m) -
-            dayInMonth(b.date, view.y, view.m)
-        );
+    ? selectDayItems(list, selected.y, selected.m, selected.d)
+    : monthListItems(list, view.y, view.m);
 
   function shiftMonth(delta: number) {
     // 달을 옮겨도 선택한 날짜는 유지(다른 달을 봐도 선택 해제 안 됨)
@@ -648,7 +611,7 @@ export function AnniversarySection() {
               selected?.y === view.y &&
               selected?.m === view.m &&
               selected?.d === d;
-            const has = monthItemsByDay.has(d);
+            const has = markedDays.has(d);
             // 공휴일(빨간날) 또는 일요일이면 빨간 숫자
             const isRed =
               weekday === 0 || viewHolidays[holidayKey(view.y, view.m, d)] != null;
