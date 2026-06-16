@@ -510,6 +510,14 @@ export function AnniversarySection() {
     setDir(newIdx > oldIdx ? 1 : -1);
     setView({ y, m });
   }
+  // "오늘" — 오늘 달의 일정 목록으로 이동(날짜 선택 없이 → 오늘은 달력에 회색으로 표시).
+  function goToToday() {
+    const y = td.getFullYear();
+    const m = td.getMonth();
+    setDir(y * 12 + m >= view.y * 12 + view.m ? 1 : -1);
+    setView({ y, m });
+    setSelected(null);
+  }
 
   // 선택한 날짜가 공휴일이면 이름(예: "추석") 표시
   const selectedHoliday = selected
@@ -521,6 +529,11 @@ export function AnniversarySection() {
     selected.y === td.getFullYear() &&
     selected.m === td.getMonth() &&
     selected.d === td.getDate();
+  // "오늘" 버튼 노출 — 타이틀이 "N월 일정"인 상태(날짜 미선택)에서, 오늘 달이 아닐 때만.
+  // (날짜 선택 중엔 옆의 "N월 일정" 버튼으로 목록 복귀, 이미 오늘 달이면 돌아갈 곳 없음)
+  const viewingTodayMonth =
+    view.y === td.getFullYear() && view.m === td.getMonth();
+  const showTodayButton = selected === null && !viewingTodayMonth;
   // 리스트 영역 페이드용 key — 선택(날짜/전체)이 바뀌면 재마운트되어 페이드 인 재생
   const listKey = selected
     ? `${selected.y}-${selected.m}-${selected.d}`
@@ -763,15 +776,26 @@ export function AnniversarySection() {
             `${view.m + 1}월 일정`
           )}
         </span>
-        {selected && (
-          <button
-            type="button"
-            onClick={() => setSelected(null)}
-            className="text-xs tracking-[0.15em] text-text-muted transition-colors hover:text-text"
-          >
-            {view.m + 1}월 일정
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {selected && (
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="text-xs tracking-[0.15em] text-text-muted transition-colors hover:text-text"
+            >
+              {view.m + 1}월 일정
+            </button>
+          )}
+          {showTodayButton && (
+            <button
+              type="button"
+              onClick={goToToday}
+              className="rounded-full border border-line px-2.5 py-0.5 text-xs tracking-[0.15em] text-text-muted transition-colors hover:border-text-muted hover:text-text"
+            >
+              오늘
+            </button>
+          )}
+        </div>
       </div>
 
       {isPending ? (
