@@ -2,12 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { SINCE, daysSince } from "@/lib/relationship";
-import { MeetCalendar } from "@/app/_components/meet-calendar";
+import { daysSince } from "@/lib/relationship";
+import { MeetDateCard } from "@/app/_components/meet-date-card";
+import { HomeCalendar } from "@/app/_components/home-calendar";
 import { CoupleLine } from "@/app/_components/couple-line";
 import { Reveal } from "@/app/_components/reveal";
 
-const pad = (n: number) => String(n).padStart(2, "0");
 const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 // 생일(DateTime?) → "M월 D일". 날짜만 의미 있으므로 UTC 기준 표기(타임존 이동 방지).
 const fmtBirthday = (d: Date | null) =>
@@ -84,12 +84,9 @@ export default async function Home() {
         </div>
       </Reveal>
 
-      {/* 두 사람 이름 + 처음 만난 날 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
+      {/* 두 사람 이름 + 처음 만난 날 카드 — 한 묶음(둘 사이는 구분선 없이 간격만) */}
       <Reveal className="space-y-7">
         <div className="text-center">
-          <p className="mb-5 text-[0.7rem] tracking-[0.32em] text-text-muted">
-            SINCE {SINCE.year} · {pad(SINCE.month)} · {pad(SINCE.day)}
-          </p>
           <h1 className="text-2xl font-extralight tracking-[0.18em] text-text">
             {people.map((p, i) => (
               <span key={p.username}>
@@ -102,15 +99,15 @@ export default async function Home() {
           </h1>
         </div>
 
-        <div>
-          <p className="mb-2 text-center text-[0.55rem] tracking-[0.3em] text-text-muted">
-            처음 만난 날
-          </p>
-          <MeetCalendar />
-          <p className="mt-4 text-center text-[0.7rem] tracking-[0.26em] text-text-muted">
-            함께한 지 {days}일
-          </p>
-        </div>
+        <MeetDateCard days={days} />
+      </Reveal>
+
+      {/* CALENDAR — 이번 달 일정 미리보기(읽기 전용). 탭하면 캘린더 페이지로 이동. */}
+      <Reveal>
+        <p className="mb-4 text-center text-sm tracking-[0.3em] text-text">
+          CALENDAR
+        </p>
+        <HomeCalendar />
       </Reveal>
 
       {/* ABOUT US — 두 사람 프로필 카드(아바타·이름·생일·인스타) */}

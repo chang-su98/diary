@@ -13,8 +13,12 @@ import {
 import {
   DAY_MS,
   WEEKDAYS,
+  dayInMonth,
+  formatDday,
   formatYmdWeekday,
-  nextYearlyOccurrence,
+  localMs,
+  occursInMonth,
+  ymdFromIso,
 } from "@/lib/calendar-date";
 
 // 달력이 다루는 일정 형태 — DB 일정 + 고정(생일·처음 만난 날) 가상 일정 공용.
@@ -34,61 +38,6 @@ async function errorMessage(res: Response): Promise<string> {
     return body.error;
   }
   return "처리에 실패했습니다.";
-}
-
-// D-day: 매년 반복이면 다음 주기까지, 1회성이면 지난 경우 D+N
-function formatDday(iso: string, yearly: boolean, todayMs: number): string {
-  const d = new Date(iso);
-  const month = d.getUTCMonth();
-  const day = d.getUTCDate();
-
-  if (yearly) {
-    const next = nextYearlyOccurrence(month, day, todayMs).getTime();
-    const r = Math.round((next - todayMs) / DAY_MS);
-    return r === 0 ? "D-DAY" : `D-${r}`;
-  }
-
-  const target = new Date(d.getUTCFullYear(), month, day);
-  const r = Math.round((target.getTime() - todayMs) / DAY_MS);
-  if (r === 0) return "D-DAY";
-  return r > 0 ? `D-${r}` : `D+${-r}`;
-}
-
-// UTC 자정으로 저장된 날짜에서 연/월/일 추출(타임존 시프트 방지)
-function ymdFromIso(iso: string): { y: number; m: number; d: number } {
-  const dt = new Date(iso);
-  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth(), d: dt.getUTCDate() };
-}
-
-// 표시 중인 달(y,m)에 발생하는 일정인지 — 매년 반복은 월 일치, 1회성은 그 연·월,
-// 기간은 달과 겹치면 포함. (날짜 미선택 시 그달 일정 목록 필터용)
-function occursInMonth(
-  iso: string,
-  endIso: string | null,
-  yearly: boolean,
-  y: number,
-  m: number
-): boolean {
-  const s = ymdFromIso(iso);
-  if (yearly) return s.m === m;
-  if (!endIso) return s.y === y && s.m === m;
-  const monthStart = new Date(y, m, 1).getTime();
-  const monthEnd = new Date(y, m + 1, 0).getTime();
-  return localMs(iso) <= monthEnd && localMs(endIso) >= monthStart;
-}
-
-// 그 달 안에서의 정렬용 일자 — 기간이 이전 달부터 이어진 경우엔 1일로.
-function dayInMonth(iso: string, y: number, m: number): number {
-  const s = ymdFromIso(iso);
-  if (s.m === m && s.y === y) return s.d; // 그달 시작(단일/기간)
-  if (s.m === m) return s.d; // 매년 반복(연도는 달라도 월 일치)
-  return 1; // 이전 달부터 이어진 기간
-}
-
-// 로컬 자정 ms — UTC 저장 날짜의 연/월/일을 로컬 날짜로 취급(비교·계산용)
-function localMs(iso: string): number {
-  const { y, m, d } = ymdFromIso(iso);
-  return new Date(y, m, d).getTime();
 }
 
 // 기간 일정의 "N박 N+1일" 라벨. 단일일/역전이면 null.
