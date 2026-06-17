@@ -123,13 +123,14 @@ export function NotificationToggle() {
         // 권한 차단 시엔 토글로 켤 수 없으므로 비활성화(설정에서 허용해야 함)
         disabled={busy || denied}
         onClick={() => (on ? disable.mutate() : enable.mutate())}
-        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-50 ${
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-50 ${
           on ? "bg-primary" : "bg-line"
         }`}
       >
+        {/* 손잡이: 사방 2px(left/top-0.5) 여백, 켜질 때 오른쪽으로 1.25rem 이동 */}
         <span
-          className={`absolute top-0.5 size-6 rounded-full bg-bg shadow transition-transform duration-200 ${
-            on ? "translate-x-[1.375rem]" : "translate-x-0.5"
+          className={`absolute left-0.5 top-0.5 size-5 rounded-full bg-bg shadow-sm transition-transform duration-200 ${
+            on ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
