@@ -5,6 +5,7 @@ import { PHOTO_PAGE_SIZE } from "@/app/api/photos/route";
 import { GalleryUpload } from "./gallery-upload";
 import { GalleryGrid } from "./gallery-grid";
 import { GallerySelectionController } from "./gallery-selection-controller";
+import { GalleryTopButton } from "./gallery-top-button";
 
 export default async function GalleryPage() {
   const session = await getSession();
@@ -56,6 +57,7 @@ export default async function GalleryPage() {
             initialCursor={initialCursor}
           />
           <GallerySelectionController />
+          <GalleryTopButton />
         </>
       )}
     </main>
