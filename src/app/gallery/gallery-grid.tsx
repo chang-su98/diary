@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useGalleryStore } from "@/lib/gallery-store";
 import { useGallerySelectionStore } from "@/lib/gallery-selection-store";
 import { useDragSelect } from "./use-drag-select";
+import { PhotoLikeButton } from "./gallery-like-button";
 import type { GalleryPhoto as Photo } from "./types";
 
 // 메이슨리 레이아웃 상수 — 3열, 셀 간격 8px(가로·세로 동일).
@@ -507,11 +508,14 @@ function PhotoDetail({
           {photo.author?.username ?? "알 수 없음"}
         </span>
 
+        {/* 좋아요(하트) — ml-auto로 우측 정렬, 닫기 버튼이 그 옆에 온다 */}
+        <PhotoLikeButton photoId={photo.id} />
+
         <button
           type="button"
           onClick={onClose}
           aria-label="닫기"
-          className="ml-auto p-1 text-text transition-opacity hover:opacity-60"
+          className="p-1 text-text transition-opacity hover:opacity-60"
         >
           <svg
             viewBox="0 0 24 24"

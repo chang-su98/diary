@@ -24,10 +24,27 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
 
-  anniversaries Anniversary[] // 작성한 일정
-  photos        Photo[] // 올린 사진
+  anniversaries     Anniversary[] // 작성한 일정
+  photos            Photo[] // 올린 사진
+  photoLikes        PhotoLike[] // 누른 좋아요
+  pushSubscriptions PushSubscription[] // 푸시 알림 구독(기기별)
 
   @@map("users")
+}
+
+// 웹 푸시 구독 — 기기/브라우저마다 1행. 좋아요 알림 발송 대상.
+// 만료·해지된 구독(발송 시 404/410)은 발송 로직에서 정리한다.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique @db.Text // 푸시 서비스 엔드포인트(기기 식별)
+  p256dh    String   @db.Text // 구독 공개키
+  auth      String   @db.Text // 구독 인증 시크릿
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // 우리들의 일정 — 폐쇄형 2인 공유 일정.
@@ -65,5 +82,22 @@ model Photo {
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
+  likes     PhotoLike[] // 이 사진에 눌린 좋아요
+
   @@map("photos")
+}
+
+// 사진 좋아요 — 폐쇄형 2인 앱. 사용자당 사진 1개에 한 번(토글).
+// 사진/사용자 삭제 시 함께 정리(Cascade).
+model PhotoLike {
+  id        Int      @id @default(autoincrement())
+  photoId   Int
+  userId    Int
+  createdAt DateTime @default(now())
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, userId]) // 사용자당 사진 1회만
+  @@index([photoId]) // 사진별 개수 집계용
+  @@map("photo_likes")
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/app/logout-button";
+import { NotificationToggle } from "./notification-toggle";
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -93,6 +94,9 @@ export default async function ProfilePage() {
           ))}
         </tbody>
       </table>
+
+      {/* 좋아요 알림 토글 — 미지원/미설정 환경에선 자동으로 숨김 */}
+      <NotificationToggle />
 
       <div className="mt-12 flex justify-center">
         <LogoutButton />
