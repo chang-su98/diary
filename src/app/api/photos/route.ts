@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
 import {
@@ -10,9 +11,64 @@ import {
   photoDeleteSchema,
 } from "@/lib/schemas/photo";
 import { dataUrlToBuffer, getStorage } from "@/lib/storage";
+import { sendPushToOthers } from "@/lib/push";
 
 // 갤러리 한 페이지 크기 — 페이지·API 공통
 export const PHOTO_PAGE_SIZE = 15;
+
+// 일괄 업로드 알림 디바운스 윈도우(ms). 클라이언트가 장당 1회 POST를 동시성 3으로
+// 보내므로, 이 윈도우 안의 연속/동시 업로드는 한 번만 발송한다(화면 표시도 고정 tag로 1개).
+// 주의: 윈도우 내 "다음 배치"도 억제된다(스로틀 의미상 의도된 동작).
+const UPLOAD_NOTIFY_DEBOUNCE_MS = 60_000;
+
+// throttle key — 유한 카디널리티(이벤트:userId)여야 한다. 가변 id 기반 key를 쓰면
+// notify_throttles 행이 무한 증가하므로, 그 경우 별도 TTL 정리가 필요하다(현재는 사용자 수 고정).
+function uploadNotifyKey(userId: number): string {
+  return `photo-upload:${userId}`;
+}
+
+// 사진 업로드 알림 발송권을 원자적으로 획득한다.
+// 반환: 획득한 발송 시각(Date) = 이 호출이 발송 담당 / null = 다른 호출이 선점(발송 안 함).
+// 조건부 updateMany는 윈도우가 지난 단 하나의 동시 호출에만 count=1을 부여하고,
+// 행이 없으면 create의 unique(@id) 충돌로 단일 호출만 선점 → 동시 업로드 중복 발송 차단.
+async function claimUploadNotify(userId: number): Promise<Date | null> {
+  const key = uploadNotifyKey(userId);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - UPLOAD_NOTIFY_DEBOUNCE_MS);
+  const { count } = await prisma.notifyThrottle.updateMany({
+    where: { key, lastNotifiedAt: { lt: cutoff } },
+    data: { lastNotifiedAt: now },
+  });
+  if (count > 0) return now;
+  // 갱신 0건: 행이 없거나(최초) 윈도우 내(다른 호출이 이미 선점). 최초면 생성으로 선점 시도.
+  try {
+    await prisma.notifyThrottle.create({ data: { key, lastNotifiedAt: now } });
+    return now;
+  } catch (error: unknown) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return null; // 다른 동시 호출이 먼저 생성/발송함
+    }
+    throw error;
+  }
+}
+
+// 획득한 발송권을 되돌린다(best-effort, 조건부).
+// 발송을 "시도하기 전" 단계(예: 작성자 DB 조회) 실패 시에만 호출해, 소모된 윈도우 동안
+// 알림이 유실되지 않고 다음 업로드가 재시도하게 한다. claimedAt(내가 세운 값)과 일치할
+// 때만 무효화하므로, 그 사이 다른 업로드가 윈도우를 갱신했으면 no-op → 중복 알림 방지.
+// 참고: 실제 푸시 "전송" 실패는 best-effort라 sendPushToOthers 내부에서 삼켜지며(여기로
+// 전파되지 않음), 그 경우 윈도우 소모는 의도된 동작이다(성공 기기 중복 발송 방지).
+async function releaseUploadNotify(userId: number, claimedAt: Date): Promise<void> {
+  await prisma.notifyThrottle
+    .updateMany({
+      where: { key: uploadNotifyKey(userId), lastNotifiedAt: claimedAt },
+      data: { lastNotifiedAt: new Date(0) }, // 즉시 윈도우 만료 처리
+    })
+    .catch(() => {});
+}
 
 // 스토리지 용량 상한(바이트). R2 무료 10GB 대비 여유(기본 9.5GB). env로 조정 가능.
 const STORAGE_MAX_BYTES = Number(
@@ -189,6 +245,38 @@ export async function POST(req: NextRequest) {
         { status: 507 }
       );
     }
+
+    // 상대방에게 새 사진 알림(베스트 에포트) — 응답 후 백그라운드 발송, 실패는 격리.
+    // 일괄 업로드는 throttle로 발송권을 원자적으로 단일 호출에만 부여해(동시 업로드여도)
+    // 한 번만 발송하고, 고정 tag로 화면 표시도 1개만 갱신되게 한다.
+    after(async () => {
+      let claimedAt: Date | null = null;
+      try {
+        claimedAt = await claimUploadNotify(authorId);
+        if (!claimedAt) return;
+
+        const author = await prisma.user.findUnique({
+          where: { id: authorId },
+          select: { displayName: true, username: true },
+        });
+        const name = (
+          author?.displayName ||
+          author?.username ||
+          "상대방"
+        ).slice(0, 40);
+        await sendPushToOthers(authorId, {
+          title: "Record",
+          body: `${name}님이 새 사진을 올렸어요 📷`,
+          url: "/gallery",
+          tag: "photo-upload", // 연속·일괄 업로드 알림은 하나로 갱신
+        });
+      } catch (error: unknown) {
+        console.warn("[POST /api/photos] 푸시 발송 실패:", error);
+        // 발송 시도 전 단계(작성자 조회 등) 실패 시에만 윈도우를 되돌려 다음 업로드가
+        // 재알림하게 한다(best-effort). 실제 푸시 전송 실패는 여기로 전파되지 않는다.
+        if (claimedAt) await releaseUploadNotify(authorId, claimedAt);
+      }
+    });
 
     return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {

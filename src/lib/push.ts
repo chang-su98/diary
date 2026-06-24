@@ -36,8 +36,37 @@ export async function sendPushToUser(
     console.warn("[push] VAPID 미설정 — 발송 건너뜀");
     return;
   }
-
   const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+  await deliverToSubscriptions(subs, payload);
+}
+
+/**
+ * 본인(excludeUserId)을 제외한 모든 사용자에게 같은 푸시를 발송한다(베스트 에포트).
+ * 폐쇄형 2인 공유 앱에선 사실상 "상대방에게" 보내는 용도.
+ * 대상 구독을 단일 쿼리로 가져와 발송한다(사용자별 반복 조회 없음).
+ */
+export async function sendPushToOthers(
+  excludeUserId: number,
+  payload: PushPayload
+): Promise<void> {
+  if (!isPushConfigured()) {
+    console.warn("[push] VAPID 미설정 — 발송 건너뜀");
+    return;
+  }
+  const subs = await prisma.pushSubscription.findMany({
+    where: { userId: { not: excludeUserId } },
+  });
+  await deliverToSubscriptions(subs, payload);
+}
+
+// 구독 목록으로 실제 발송하는 내부 구현(VAPID 설정·대상 조회는 호출부가 보장).
+// 만료·해지된 구독(404/410)은 정리하고, 그 외 오류는 status만 로그로 남긴다.
+type DeliverableSub = { id: number; endpoint: string; p256dh: string; auth: string };
+
+async function deliverToSubscriptions(
+  subs: DeliverableSub[],
+  payload: PushPayload
+): Promise<void> {
   if (subs.length === 0) return;
 
   const body = JSON.stringify(payload);

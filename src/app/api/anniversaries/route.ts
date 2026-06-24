@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
 import { anniversaryCreateSchema } from "@/lib/schemas/anniversary";
+import { sendPushToOthers } from "@/lib/push";
 
 // 기념일 목록 조회
 export async function GET() {
@@ -66,6 +67,28 @@ export async function POST(req: NextRequest) {
       },
       include: { author: { select: { displayName: true, username: true } } },
     });
+
+    // 상대방에게 새 일정 알림(베스트 에포트) — 응답을 보낸 뒤 백그라운드로 발송해
+    // 등록 응답을 푸시 게이트웨이 왕복만큼 지연시키지 않는다. 발송 실패는 격리.
+    // 표시명·제목은 사용자 편집값이라 페이로드 비대화 방지로 길이를 제한한다.
+    const authorName = (
+      anniversary.author?.displayName ||
+      anniversary.author?.username ||
+      "상대방"
+    ).slice(0, 40);
+    after(async () => {
+      try {
+        await sendPushToOthers(authorId, {
+          title: "Record",
+          body: `${authorName}님이 새 일정을 등록했어요 — ${title.slice(0, 40)}`,
+          url: "/", // 메인 캘린더
+          tag: `anniv-${anniversary.id}`,
+        });
+      } catch (error) {
+        console.warn("[POST /api/anniversaries] 푸시 발송 실패:", error);
+      }
+    });
+
     return NextResponse.json({ anniversary }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/anniversaries]", error);

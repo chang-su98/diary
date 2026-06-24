@@ -47,6 +47,19 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+// 푸시 알림 발송 스로틀 — 같은 종류의 연속/일괄 이벤트(예: 사진 일괄 업로드)에서
+// 디바운스 윈도우 동안 단 한 번만 발송하기 위한 원자적 게이트.
+// key("이벤트:사용자id") 단위로 마지막 발송 시각을 기록하고, 조건부 updateMany로
+// 발송권을 단일 호출에만 부여한다(동시 업로드 시 중복 발송 차단).
+// 주의: key는 유한 카디널리티(이벤트:userId)여야 한다. id 기반 가변 key를 도입하면
+// 행이 무한 증가하므로 그 경우 lastNotifiedAt 기준 TTL 정리가 필요하다.
+model NotifyThrottle {
+  key            String   @id // 예: "photo-upload:{userId}"
+  lastNotifiedAt DateTime
+
+  @@map("notify_throttles")
+}
+
 // 우리들의 일정 — 폐쇄형 2인 공유 일정.
 // 인가 모델: 공유 — 로그인한 두 사용자 모두 누구의 일정이든 수정/삭제 가능(의도).
 // authorId는 "누가 만들었는지" 표시용일 뿐 수정/삭제 권한을 제한하지 않는다.
