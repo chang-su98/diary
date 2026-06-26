@@ -21,6 +21,7 @@ export default async function GalleryPage() {
         id: true, // 이미지는 /api/photos/[id]/raw 로 서빙 — 메타만 내려보냄
         width: true,
         height: true,
+        createdAt: true, // 상세 모달 날짜 표시용
         // 상세 모달의 등록자 표시용 — author는 삭제 시 null
         author: { select: { username: true, displayName: true, avatar: true } },
       },
@@ -33,6 +34,12 @@ export default async function GalleryPage() {
   ]);
   const initialCursor =
     photos.length === PHOTO_PAGE_SIZE ? photos[photos.length - 1].id : null;
+  // Prisma의 Date를 공용 타입(GalleryPhoto.createdAt: string)에 맞춰 ISO 문자열로 통일
+  // — API(JSON 직렬화)·낙관적 추가와 동일한 표현으로 맞춘다.
+  const initialPhotos = photos.map((p) => ({
+    ...p,
+    createdAt: p.createdAt.toISOString(),
+  }));
 
   return (
     <main className="relative mx-auto w-full max-w-md px-4 pt-[calc(2rem+var(--safe-top))] pb-[calc(4rem+var(--safe-bottom))]">
@@ -53,7 +60,7 @@ export default async function GalleryPage() {
           {/* 첫 페이지가 바뀌면(업로드·새로고침) key 변경으로 리마운트 → 목록 재시드 */}
           <GalleryGrid
             key={`${photos[0].id}:${photos.length}`}
-            initialPhotos={photos}
+            initialPhotos={initialPhotos}
             initialCursor={initialCursor}
           />
           <GallerySelectionController />

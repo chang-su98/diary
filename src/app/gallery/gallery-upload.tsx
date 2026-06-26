@@ -116,7 +116,15 @@ export function GalleryUpload({
         const file = files[next++];
         try {
           const { id, width, height } = await uploadOne(file);
-          uploaded.push({ id, width, height, author: currentUser });
+          // 낙관적 추가분의 날짜 — 방금 업로드이므로 클라이언트 현재시각(ISO)으로 둔다.
+          // 서버 재시드(pull-refresh) 시 실제 createdAt으로 자연 교체된다.
+          uploaded.push({
+            id,
+            width,
+            height,
+            createdAt: new Date().toISOString(),
+            author: currentUser,
+          });
         } catch (error) {
           if (!firstError) {
             firstError =

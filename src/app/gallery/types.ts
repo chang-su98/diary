@@ -3,6 +3,8 @@ export type GalleryPhoto = {
   id: number;
   width: number;
   height: number;
+  // 업로드 시각(ISO 문자열). 상세 모달의 날짜 표시용. 서버 JSON·낙관적 추가 모두 ISO로 통일.
+  createdAt: string;
   author: {
     username: string;
     displayName: string | null;

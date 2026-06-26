@@ -81,6 +81,7 @@ const photoSelect = {
   id: true,
   width: true,
   height: true,
+  createdAt: true, // 상세 모달 날짜 표시용 — NextResponse.json이 ISO 문자열로 직렬화
   author: { select: { username: true, displayName: true, avatar: true } },
 } as const;
 

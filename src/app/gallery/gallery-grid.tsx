@@ -45,6 +45,20 @@ const rawUrl = (id: number) => `/api/photos/${id}/raw`;
 // 상세 모달 닫힘 애니메이션 시간(ms) — globals.css의 modal-*-out(0.18s)과 맞춘다.
 const MODAL_ANIM_MS = 180;
 
+// 상세 모달에서 좌우 스와이프로 인정할 최소 가로 이동(px). 이보다 작거나 세로가 더
+// 크면 단순 탭/세로 제스처로 보고 넘김을 발동하지 않는다.
+const SWIPE_THRESHOLD = 45;
+
+// 업로드 날짜 표시 — ISO 문자열을 로컬 기준 YYYY.MM.DD로. 파싱 실패 시 빈 문자열.
+function formatPhotoDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
+
 // id 기준 중복 제거(앞선 항목 우선) — 스토어 added와 서버 photos가 겹칠 때 대비
 function dedupeById(list: Photo[]): Photo[] {
   const seen = new Set<number>();
@@ -63,11 +77,12 @@ function dedupeById(list: Photo[]): Photo[] {
 // (React state/effect 없이 DOM만 만져 set-state-in-effect 룰 회피)
 function GalleryTile({
   photo,
-  onSelect,
+  onOpen,
   shouldSuppressClick,
 }: {
   photo: Photo;
-  onSelect: (photo: Photo) => void;
+  // 상세 열기 — 호출부에서 (목록, 인덱스)를 미리 바인딩해 넘긴다(스와이프 네비게이션용)
+  onOpen: () => void;
   // 드래그(사각형) 선택 직후 따라오는 click 토글을 건너뛸지 — 선택 모드에서만 의미 있음
   shouldSuppressClick?: () => boolean;
 }) {
@@ -82,7 +97,7 @@ function GalleryTile({
     <button
       type="button"
       onClick={() => {
-        if (!selecting) return onSelect(photo);
+        if (!selecting) return onOpen();
         // 직전이 사각형 드래그 선택이었으면 따라오는 click의 토글을 건너뛴다
         if (shouldSuppressClick?.()) return;
         toggle(photo.id);
@@ -159,6 +174,12 @@ type PhotosPage = { photos: Photo[]; nextCursor: number | null };
  * 모달 상태(selected)는 GalleryGrid가, 그리드는 PhotoMasonry가 따로 들고 있어
  * 모달을 열고 닫아도 그리드가 리렌더되지 않는다(깜빡임 방지).
  */
+// 상세 모달의 등장 방향 — 처음 열림(팝업) / 다음(오른쪽에서) / 이전(왼쪽에서).
+type DetailDir = "open" | "next" | "prev";
+// 상세 모달 상태 — 열 때의 목록 스냅샷 + 현재 인덱스 + 등장 방향.
+// 목록은 여는 순간 고정(스냅샷)이라 모달이 열린 동안 추가 로딩/삭제에 흔들리지 않는다.
+type DetailState = { list: Photo[]; index: number; dir: DetailDir };
+
 export function GalleryGrid({
   initialPhotos,
   initialCursor,
@@ -166,19 +187,24 @@ export function GalleryGrid({
   initialPhotos: Photo[];
   initialCursor: number | null;
 }) {
-  const [selected, setSelected] = useState<Photo | null>(null);
+  const [detail, setDetail] = useState<DetailState | null>(null);
   // 닫힘 애니메이션을 위해 잠깐 유지 — closing 동안 역방향 애니 재생 후 언마운트
   const [closing, setClosing] = useState(false);
   const closeTimer = useRef<number | null>(null);
+  // 닫기 1회 보장 플래그(동기). history.back()은 popstate가 비동기로 와서 그 사이
+  // 두 번째 닫기(ESC 연타·X 더블탭·닫히는 중 추가 닫기)가 back()을 또 호출하면
+  // 모달 항목 다음으로 갤러리 라우트까지 pop되어 화면 밖으로 튕긴다. 이를 막는다.
+  const closeRequested = useRef(false);
   const clearAdded = useGalleryStore((s) => s.clear);
 
-  const openDetail = useCallback((photo: Photo) => {
+  const openDetail = useCallback((list: Photo[], index: number) => {
     if (closeTimer.current !== null) {
       window.clearTimeout(closeTimer.current);
       closeTimer.current = null;
     }
+    closeRequested.current = false; // 새로 열면 닫기 잠금 해제
     setClosing(false);
-    setSelected(photo);
+    setDetail({ list, index, dir: "open" });
     // 모달 열림을 history 항목으로 쌓는다 → 물리 뒤로가기(안드로이드 홈바)가
     // 이전 페이지로 가지 않고 이 항목을 pop하며 모달만 닫히게 한다(popstate 핸들러).
     // 이미 modal 항목이 top이면(닫힘 애니 중 재오픈 등) 재push하지 않아 history 누적을
@@ -192,12 +218,25 @@ export function GalleryGrid({
     }
   }, []);
 
+  // 이전/다음 사진으로 이동(모달 유지). 경계를 벗어나면 무시한다. 좌우 넘김은 history를
+  // 건드리지 않아(열림 항목 1개만 유지) 뒤로가기 1회로 항상 모달이 닫힌다.
+  // 함수형 업데이트라 키보드/스와이프 핸들러가 재바인딩 없이도 항상 최신 인덱스를 본다.
+  const navigate = useCallback((delta: number) => {
+    setDetail((cur) => {
+      if (!cur) return cur;
+      const next = cur.index + delta;
+      if (next < 0 || next >= cur.list.length) return cur;
+      return { list: cur.list, index: next, dir: delta > 0 ? "next" : "prev" };
+    });
+  }, []);
+
   // 닫힘 애니메이션 실행 후 언마운트. 실제 닫기는 popstate(뒤로가기) 경로로만 일어난다.
   const requestClose = useCallback(() => {
     if (closeTimer.current !== null) return; // 이미 닫는 중 — 중복 popstate 무시
+    closeRequested.current = true; // 물리 뒤로가기 경로도 잠가 이후 back() 중복 차단
     setClosing(true);
     closeTimer.current = window.setTimeout(() => {
-      setSelected(null);
+      setDetail(null);
       setClosing(false);
       closeTimer.current = null;
     }, MODAL_ANIM_MS);
@@ -206,6 +245,8 @@ export function GalleryGrid({
   // 사용자 닫기(X·배경·ESC)는 history를 되돌려 popstate 경로로 닫는다 →
   // 물리 뒤로가기와 동일하게 동작하고, 쌓아둔 history 항목도 정확히 소비된다.
   const closeModal = useCallback(() => {
+    if (closeRequested.current) return; // 이미 닫기 요청됨 — 두 번째 back() 무시
+    closeRequested.current = true;
     window.history.back();
   }, []);
 
@@ -216,14 +257,18 @@ export function GalleryGrid({
     clearAdded();
   }, [clearAdded]);
 
-  // 모달이 열린 동안 배경 스크롤 잠금 + ESC 닫기.
-  // (스크롤 잠금은 setState 미사용, 닫기는 이벤트 콜백 내 호출 → set-state-in-effect 룰 무관)
+  // 모달이 열린 동안 배경 스크롤 잠금 + 키보드(ESC 닫기 / ← → 넘김).
+  // open(불리언)에만 의존 → 좌우 넘김으로 detail이 바뀌어도 재실행되지 않아(콜백 안정)
+  // 스크롤 잠금·리스너가 그대로 유지된다. (스크롤 잠금은 setState 미사용 → 룰 무관)
+  const open = detail !== null;
   useEffect(() => {
-    if (!selected) return;
+    if (!open) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
+      else if (e.key === "ArrowRight") navigate(1);
+      else if (e.key === "ArrowLeft") navigate(-1);
     };
     // 물리 뒤로가기(안드로이드 홈바)·제스처 → openDetail이 쌓은 history 항목이 pop되며
     // popstate 발생 → 이전 페이지로 가지 않고 모달만 닫는다.
@@ -235,7 +280,19 @@ export function GalleryGrid({
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("popstate", onPop);
     };
-  }, [selected, requestClose, closeModal]);
+  }, [open, requestClose, closeModal, navigate]);
+
+  // 인접 사진 프리로드 — 좌우 넘김 시 즉시 뜨도록 미리 디코드(브라우저 캐시에 적재).
+  useEffect(() => {
+    if (!detail) return;
+    for (const i of [detail.index - 1, detail.index + 1]) {
+      const p = detail.list[i];
+      if (p) {
+        const img = new window.Image();
+        img.src = rawUrl(p.id);
+      }
+    }
+  }, [detail]);
 
   // 언마운트 시 대기 중인 닫힘 타이머 정리
   useEffect(
@@ -245,22 +302,30 @@ export function GalleryGrid({
     []
   );
 
+  const current = detail ? detail.list[detail.index] : null;
+
   return (
     <>
-      {/* onSelect는 안정적(openDetail) → selected가 바뀌어도 그리드는 리렌더 안 됨 */}
+      {/* onSelect는 안정적(openDetail) → detail이 바뀌어도 그리드는 리렌더 안 됨 */}
       <PhotoMasonry
         initialPhotos={initialPhotos}
         initialCursor={initialCursor}
         onSelect={openDetail}
       />
 
-      {/* 상세 모달은 body로 포털 + 선택 사진 id로 key. closing 동안 역방향 애니 후 언마운트 */}
-      {selected &&
+      {/* 상세 모달은 body로 포털. 넘김 동안엔 마운트를 유지(배경 재페이드 방지)하고
+          내부 이미지만 방향별 애니로 교체한다. closing 동안 역방향 애니 후 언마운트 */}
+      {current &&
+        detail &&
         createPortal(
           <PhotoDetail
-            key={selected.id}
-            photo={selected}
+            photo={current}
+            dir={detail.dir}
             closing={closing}
+            hasPrev={detail.index > 0}
+            hasNext={detail.index < detail.list.length - 1}
+            onPrev={() => navigate(-1)}
+            onNext={() => navigate(1)}
             onClose={closeModal}
           />,
           document.body
@@ -282,7 +347,8 @@ function PhotoMasonry({
 }: {
   initialPhotos: Photo[];
   initialCursor: number | null;
-  onSelect: (photo: Photo) => void;
+  // 상세 열기 — 현재 보이는 목록 스냅샷과 클릭한 인덱스를 넘긴다(스와이프 네비게이션용)
+  onSelect: (list: Photo[], index: number) => void;
 }) {
   // 누적 목록 + 다음 커서. initialPhotos는 시드값으로만 사용(이후 추가는 클라이언트 fetch).
   const [photos, setPhotos] = useState(initialPhotos);
@@ -419,7 +485,7 @@ function PhotoMasonry({
         style={measured ? { height: live.height } : undefined}
       >
         {measured ? (
-          items.map((p) => {
+          items.map((p, i) => {
             const t = deletingIds.has(p.id)
               ? full.tiles.get(p.id)
               : live.tiles.get(p.id);
@@ -436,7 +502,7 @@ function PhotoMasonry({
               >
                 <GalleryTile
                   photo={p}
-                  onSelect={onSelect}
+                  onOpen={() => onSelect(items, i)}
                   shouldSuppressClick={shouldSuppressClick}
                 />
               </div>
@@ -445,11 +511,11 @@ function PhotoMasonry({
         ) : (
           // 너비 측정 전 폴백 — CSS columns 메이슨리(SSR·첫 프레임 깜빡임 방지)
           <div className="columns-3 gap-1.5 [&>*]:mb-1.5">
-            {items.map((p) => (
+            {items.map((p, i) => (
               <GalleryTile
                 key={p.id}
                 photo={p}
-                onSelect={onSelect}
+                onOpen={() => onSelect(items, i)}
                 shouldSuppressClick={shouldSuppressClick}
               />
             ))}
@@ -461,31 +527,122 @@ function PhotoMasonry({
   );
 }
 
+// 등장 방향별 이미지 애니메이션 — 처음 열림은 팝업, 좌우 넘김은 해당 방향 슬라이드.
+const DETAIL_IMG_ANIM: Record<DetailDir, string> = {
+  open: "animate-modal-pop",
+  next: "animate-photo-next",
+  prev: "animate-photo-prev",
+};
+
 /**
  * 사진 상세 라이트박스. 그리드와 동일한 원본 URL을 쓰므로 그리드에서 캐시된
- * 이미지가 즉시 표시된다(별도 프리로드/스왑 불필요).
+ * 이미지가 즉시 표시된다. 좌우 스와이프(또는 ← → / 화살표 버튼)로 이웃 사진을 넘긴다.
+ * 모달은 넘기는 동안 마운트를 유지하고 내부 <img>만 key 교체로 방향 애니를 재생한다.
  */
 function PhotoDetail({
   photo,
+  dir,
   closing,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
   onClose,
 }: {
   photo: Photo;
+  dir: DetailDir;
   closing: boolean;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
   onClose: () => void;
 }) {
+  // 스와이프 추적 — 시작 좌표와 "넘김 발동 여부". 넘김 직후 따라오는 click이
+  // 배경 닫힘으로 이어지지 않도록 capture 단계에서 1회 흡수한다.
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
+  // 포커스 트랩·복원용
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    start.current = { x: e.clientX, y: e.clientY };
+    swiped.current = false;
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    const s = start.current;
+    start.current = null;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    // 가로 이동이 충분하고 세로보다 우세할 때만 넘김(세로 제스처/단순 탭 제외)
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) <= Math.abs(dy)) return;
+    swiped.current = true;
+    if (dx < 0) onNext();
+    else onPrev();
+  };
+  // 브라우저가 가로 제스처를 가로채면(iOS 엣지 뒤로가기 등) pointerup 대신 cancel이
+  // 오므로 추적 상태를 정리한다(start 잔존·오발동 방지). touch-none과 함께 작동.
+  const onPointerCancel = () => {
+    start.current = null;
+  };
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (swiped.current) {
+      e.stopPropagation();
+      swiped.current = false;
+    }
+  };
+
+  // 모달 열림 시 닫기 버튼으로 초기 포커스 이동, 닫힐 때 직전 포커스 복원(접근성).
+  // PhotoDetail은 열 때마다 새로 마운트되고 넘김 중엔 유지되므로 1회만 실행된다.
+  // (focus 호출은 setState가 아니므로 set-state-in-effect 룰과 무관)
+  useEffect(() => {
+    const prevActive = document.activeElement as HTMLElement | null;
+    closeBtnRef.current?.focus();
+    return () => prevActive?.focus?.();
+  }, []);
+
+  // 포커스 트랩 — Tab이 모달 밖(배경 탭바·업로드 버튼)으로 새지 않게 순환시킨다.
+  const onKeyDownTrap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+    );
+    if (!nodes || nodes.length === 0) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation)
+    // 어두운 배경 아무 곳이나 누르면 닫힘 (헤더·사진은 stopPropagation).
+    // 좌우 스와이프는 어디서 시작하든 넘김으로 처리한다.
     <div
-      className={`fixed inset-0 z-[60] flex flex-col bg-bg ${
+      ref={dialogRef}
+      // touch-none: 가로 스와이프를 브라우저 기본 제스처(스크롤·뒤로가기)와 경쟁시키지
+      // 않고 우리가 처리한다. 모달은 스크롤이 없어 부작용 없음.
+      className={`fixed inset-0 z-[60] flex flex-col touch-none bg-bg ${
         closing ? "animate-modal-fade-out" : "animate-modal-fade"
       }`}
       role="dialog"
       aria-modal="true"
       aria-label="사진 상세"
       onClick={onClose}
+      onClickCapture={onClickCapture}
+      onKeyDown={onKeyDownTrap}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
-      {/* 상단: 등록자 아이디 + 프로필 사진 */}
+      {/* 상단: 등록자 아이디 + 프로필 사진 + 업로드 날짜 */}
       <div
         className="flex items-center gap-3 px-5 pb-3 pt-[calc(1rem+var(--safe-top))]"
         onClick={(e) => e.stopPropagation()}
@@ -504,14 +661,20 @@ function PhotoDetail({
             </span>
           )}
         </span>
-        <span className="text-sm tracking-wide text-text">
-          {photo.author?.username ?? "알 수 없음"}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-sm tracking-wide text-text">
+            {photo.author?.username ?? "알 수 없음"}
+          </span>
+          <span className="text-xs tracking-wide text-text-muted">
+            {formatPhotoDate(photo.createdAt)}
+          </span>
+        </div>
 
         {/* 좋아요(하트) — ml-auto로 우측 정렬, 닫기 버튼이 그 옆에 온다 */}
         <PhotoLikeButton photoId={photo.id} />
 
         <button
+          ref={closeBtnRef}
           type="button"
           onClick={onClose}
           aria-label="닫기"
@@ -535,17 +698,63 @@ function PhotoDetail({
         </button>
       </div>
 
-      {/* 사진 자세히 보기 — 그리드와 같은 원본(캐시됨) */}
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+var(--safe-bottom))]">
+      {/* 사진 자세히 보기 — 그리드와 같은 원본(캐시됨). key 교체로 방향 애니 재생 */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-3 pb-[calc(1rem+var(--safe-bottom))]">
         {/* eslint-disable-next-line @next/next/no-img-element -- 라우트 서빙 이미지 */}
         <img
+          key={photo.id}
           src={rawUrl(photo.id)}
           alt=""
+          draggable={false}
           onClick={(e) => e.stopPropagation()}
           className={`max-h-full max-w-full rounded-lg object-contain ${
-            closing ? "animate-modal-pop-out" : "animate-modal-pop"
+            closing ? "animate-modal-pop-out" : DETAIL_IMG_ANIM[dir]
           }`}
         />
+
+        {/* 이전/다음 화살표 — 경계에선 숨김. 데스크톱·발견성 보조(모바일은 스와이프 주). */}
+        {hasPrev && (
+          <button
+            type="button"
+            aria-label="이전 사진"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrev();
+            }}
+            className="absolute left-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-text/70 transition-opacity hover:opacity-100 hover:text-text active:scale-90"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden width={26} height={26}>
+              <path
+                d="M15 6L9 12L15 18"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
+        {hasNext && (
+          <button
+            type="button"
+            aria-label="다음 사진"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNext();
+            }}
+            className="absolute right-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-text/70 transition-opacity hover:opacity-100 hover:text-text active:scale-90"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden width={26} height={26}>
+              <path
+                d="M9 6L15 12L9 18"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
