@@ -594,23 +594,25 @@ function PhotoDetail({
     }
   };
 
-  // 모달 열림 시 닫기 버튼으로 초기 포커스 이동, 닫힐 때 직전 포커스 복원(접근성).
+  // 모달 열림 시 다이얼로그 컨테이너로 초기 포커스 이동, 닫힐 때 직전 포커스 복원(접근성).
+  // 버튼이 아닌 컨테이너(tabIndex=-1)에 포커스를 둬서 X 버튼에 포커스 링이 칠해지지 않게 한다.
   // PhotoDetail은 열 때마다 새로 마운트되고 넘김 중엔 유지되므로 1회만 실행된다.
   // (focus 호출은 setState가 아니므로 set-state-in-effect 룰과 무관)
   // preventScroll: 포커스 이동으로 화면 밖 타일이 끌려와 스크롤이 튀는 것 방지.
   useEffect(() => {
     const prevActive = document.activeElement as HTMLElement | null;
-    closeBtnRef.current?.focus({ preventScroll: true });
+    dialogRef.current?.focus({ preventScroll: true });
     return () => prevActive?.focus?.({ preventScroll: true });
   }, []);
 
   // 경계 도달로 화살표 버튼이 사라지면(hasPrev/hasNext flip) 그 버튼에 있던 포커스가
-  // 다이얼로그 밖(body)으로 떨어져 트랩이 일시 무력화된다 → 닫기 버튼으로 회수한다.
+  // 다이얼로그 밖(body)으로 떨어져 트랩이 일시 무력화된다 → 컨테이너로 회수한다.
+  // (버튼이 아닌 컨테이너로 회수해야 스와이프마다 X 버튼에 포커스 링이 뜨지 않는다.)
   // 버튼 마운트/언마운트는 hasPrev·hasNext 변화에만 일어나므로 그때만 점검한다.
   useEffect(() => {
     const a = document.activeElement;
     if (a instanceof HTMLElement && !dialogRef.current?.contains(a)) {
-      closeBtnRef.current?.focus({ preventScroll: true });
+      dialogRef.current?.focus({ preventScroll: true });
     }
   }, [hasPrev, hasNext]);
 
@@ -640,12 +642,13 @@ function PhotoDetail({
       ref={dialogRef}
       // touch-none: 가로 스와이프를 브라우저 기본 제스처(스크롤·뒤로가기)와 경쟁시키지
       // 않고 우리가 처리한다. 모달은 스크롤이 없어 부작용 없음.
-      className={`fixed inset-0 z-[60] flex flex-col touch-none bg-bg ${
+      className={`fixed inset-0 z-[60] flex flex-col touch-none bg-bg focus:outline-none ${
         closing ? "animate-modal-fade-out" : "animate-modal-fade"
       }`}
       role="dialog"
       aria-modal="true"
       aria-label="사진 상세"
+      tabIndex={-1}
       onClick={onClose}
       onClickCapture={onClickCapture}
       onKeyDown={onKeyDownTrap}
