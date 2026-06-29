@@ -689,7 +689,7 @@ function PhotoDetail({
           type="button"
           onClick={onClose}
           aria-label="닫기"
-          className="p-1 text-text transition-opacity hover:opacity-60"
+          className="p-1 text-text transition-opacity hover:opacity-60 focus:outline-none"
         >
           <svg
             viewBox="0 0 24 24"
@@ -732,7 +732,7 @@ function PhotoDetail({
               e.stopPropagation();
               onPrev();
             }}
-            className="absolute left-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-text/70 transition-opacity hover:opacity-100 hover:text-text active:scale-90"
+            className="absolute left-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black/70 shadow-md transition hover:bg-white hover:text-black focus:outline-none active:scale-90"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden width={26} height={26}>
               <path
@@ -753,7 +753,7 @@ function PhotoDetail({
               e.stopPropagation();
               onNext();
             }}
-            className="absolute right-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-text/70 transition-opacity hover:opacity-100 hover:text-text active:scale-90"
+            className="absolute right-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black/70 shadow-md transition hover:bg-white hover:text-black focus:outline-none active:scale-90"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden width={26} height={26}>
               <path

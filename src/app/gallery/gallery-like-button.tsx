@@ -60,7 +60,7 @@ export function PhotoLikeButton({ photoId }: { photoId: number }) {
       disabled={isPending}
       aria-label={liked ? "좋아요 취소" : "좋아요"}
       aria-pressed={liked}
-      className="ml-auto flex items-center gap-1.5 p-1 text-text transition-opacity hover:opacity-60 disabled:opacity-60"
+      className="ml-auto flex items-center gap-1.5 p-1 text-text transition-opacity hover:opacity-60 focus:outline-none disabled:opacity-60"
     >
       {/* 숫자 칸은 너비 고정(0~2 모두 동일) → 개수 변화에도 하트가 흔들리지 않음 */}
       <span className="w-3 text-right text-sm tabular-nums text-text-muted">
