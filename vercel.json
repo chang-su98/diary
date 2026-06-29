@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/anniversary-reminder",
+      "schedule": "0 12 * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": {
       "development": false

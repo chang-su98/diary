@@ -59,6 +59,19 @@ export async function sendPushToOthers(
   await deliverToSubscriptions(subs, payload);
 }
 
+/**
+ * 모든 사용자의 모든 구독 기기로 같은 푸시를 발송한다(베스트 에포트).
+ * 폐쇄형 2인 앱에서 "두 사람 모두에게"가 필요한 경우(예: 일정 하루 전 리마인더)에 쓴다.
+ */
+export async function sendPushToAll(payload: PushPayload): Promise<void> {
+  if (!isPushConfigured()) {
+    console.warn("[push] VAPID 미설정 — 발송 건너뜀");
+    return;
+  }
+  const subs = await prisma.pushSubscription.findMany();
+  await deliverToSubscriptions(subs, payload);
+}
+
 // 구독 목록으로 실제 발송하는 내부 구현(VAPID 설정·대상 조회는 호출부가 보장).
 // 만료·해지된 구독(404/410)은 정리하고, 그 외 오류는 status만 로그로 남긴다.
 type DeliverableSub = { id: number; endpoint: string; p256dh: string; auth: string };
