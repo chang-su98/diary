@@ -101,7 +101,10 @@ async function deliverToSubscriptions(
             .delete({ where: { id: s.id } })
             .catch(() => {});
         } else {
-          console.warn("[push] 발송 실패:", status ?? error);
+          // error 객체 통째 로깅 금지 — WebPushError는 endpoint(토큰성 식별 URL)·
+          // headers 등 민감값을 포함할 수 있어 status 또는 message만 남긴다.
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn("[push] 발송 실패:", status ?? message);
         }
       }
     })

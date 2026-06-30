@@ -56,10 +56,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    if (!(await claimReminder())) {
-      return NextResponse.json({ ok: true, skipped: "already-sent" });
-    }
-
     const t = tomorrowKst();
     const all = await prisma.anniversary.findMany({
       select: { title: true, date: true, yearly: true },
@@ -76,6 +72,12 @@ export async function GET(req: NextRequest) {
 
     if (due.length === 0) {
       return NextResponse.json({ ok: true, due: 0 });
+    }
+
+    // throttle는 "발송 직전"에만 선점한다. 위 findMany가 일시 오류로 throw하면
+    // throttle를 소비하지 않아 Vercel 재시도가 정상 동작한다(그날 리마인더 유실 방지).
+    if (!(await claimReminder())) {
+      return NextResponse.json({ ok: true, skipped: "already-sent" });
     }
 
     // 제목은 사용자 편집값 → 페이로드 비대화 방지로 길이를 제한한다.
