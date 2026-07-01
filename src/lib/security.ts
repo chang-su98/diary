@@ -17,3 +17,15 @@ export function isSameOriginRequest(req: NextRequest): boolean {
     return false;
   }
 }
+
+// 프록시(Vercel) 뒤 클라이언트 IP 추정. rate limit 버킷 키에 사용.
+// x-forwarded-for 첫 홉(가장 왼쪽=원 클라이언트) 우선, 없으면 x-real-ip.
+// 헤더가 전혀 없으면 null → 호출부가 "공용 unknown 버킷" 대신 계정 기준으로 더 엄격히 처리.
+export function getClientIp(req: NextRequest): string | null {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip")?.trim() || null;
+}
