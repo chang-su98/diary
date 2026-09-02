@@ -187,3 +187,11 @@ export function selectDayItems<T extends OccurrenceLike>(
     return selMs >= startMs && selMs <= endMs; // 기간이면 그 사이 날짜도 포함
   });
 }
+
+// 여행 일차 헤더 표기 — "10.03 (금)"
+export function formatMdWeekday(iso: string): string {
+  const d = new Date(iso);
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${m}.${day} (${WEEKDAYS[d.getUTCDay()]})`;
+}

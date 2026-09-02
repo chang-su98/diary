@@ -31,3 +31,32 @@ export const anniversariesResponseSchema = z.object({
     })
   ),
 });
+
+// /api/trips — 여행 계획 목록(일차·장소는 상세에서)
+const tripSummarySchema = z.object({
+  id: z.number().int(),
+  title: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  author: z
+    .object({ displayName: z.string().nullable(), username: z.string() })
+    .nullable(),
+});
+
+export const tripsResponseSchema = z.object({
+  trips: z.array(tripSummarySchema),
+});
+
+// /api/trips/:id — 상세(일차별 장소 포함)
+export const tripDetailResponseSchema = z.object({
+  trip: tripSummarySchema.extend({
+    places: z.array(
+      z.object({
+        id: z.number().int(),
+        day: z.number().int(),
+        name: z.string(),
+        url: z.string().nullable(),
+      })
+    ),
+  }),
+});

@@ -6,6 +6,7 @@ import { BirthdayList } from "./birthday-list";
 import { CalendarSwiper } from "./calendar-swiper";
 import { DayCounter } from "./day-counter";
 import { NextAnniversary } from "./next-anniversary";
+import { TripList } from "./trip-list";
 import { YearlyAnniversaries } from "./yearly-anniversaries";
 
 // 달력 화면 조립 + 슬라이드 점프 신호 중계.
@@ -31,6 +32,8 @@ export function CalendarView() {
       <BirthdayList />
       {/* 매년 반복 일정도 생일과 같은 연례 D-day라 그 아래에 이어서 표시 */}
       <YearlyAnniversaries />
+      {/* D-day 목록 아래 — 여행 계획(일차별 장소는 상세 페이지에서 관리) */}
+      <TripList />
     </div>,
     <AnniversarySection key="schedule" />,
   ];
