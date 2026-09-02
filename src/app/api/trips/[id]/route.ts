@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { isSameOriginRequest } from "@/lib/security";
 import { Prisma } from "@/generated/prisma/client";
 import { tripUpdateSchema } from "@/lib/schemas/trip";
-import { tripDayCount } from "@/lib/trip-date";
+import { TRIP_MAX_DAYS, tripDayCount } from "@/lib/trip-date";
 
 function parseId(raw: string): number | null {
   const id = Number(raw);
@@ -102,6 +102,14 @@ export async function PATCH(
       if (days === 0) {
         return NextResponse.json(
           { error: "종료일은 시작일보다 빠를 수 없습니다." },
+          { status: 400 }
+        );
+      }
+      // 병합 재검증은 스키마의 cross-field 규칙을 "전부" 다시 봐야 한다.
+      // (refineTripRange는 한쪽 날짜만 온 PATCH에서 통째로 건너뛴다)
+      if (days > TRIP_MAX_DAYS) {
+        return NextResponse.json(
+          { error: `여행 기간은 최대 ${TRIP_MAX_DAYS}일까지입니다.` },
           { status: 400 }
         );
       }
