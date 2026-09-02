@@ -42,7 +42,10 @@ export function DateField({
           }
         }}
         className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
-          value ? "" : "text-transparent"
+          // 빈값일 때 브라우저 기본 표기("연도-월-일")를 숨기고 아래 placeholder만 보이게.
+          // color:transparent만으로는 포커스된 하위 필드가 선택 하이라이트 색으로
+          // 다시 그려져 "연도"가 비쳐 보인다 → datetime-edit 자체를 opacity로 끈다.
+          value ? "" : "text-transparent [&::-webkit-datetime-edit]:opacity-0"
         }`}
       />
       {!value && (
