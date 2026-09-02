@@ -28,6 +28,7 @@ model User {
   photos            Photo[] // 올린 사진
   photoLikes        PhotoLike[] // 누른 좋아요
   pushSubscriptions PushSubscription[] // 푸시 알림 구독(기기별)
+  trips             Trip[] // 만든 여행 계획
 
   @@map("users")
 }
@@ -124,4 +125,39 @@ model PhotoLike {
   @@unique([photoId, userId]) // 사용자당 사진 1회만
   @@index([photoId]) // 사진별 개수 집계용
   @@map("photo_likes")
+}
+
+// 여행 계획 — 폐쇄형 2인 공유. 시작~종료일 사이의 각 날짜가 "N일차"가 되고,
+// 일차마다 가고 싶은 장소(맛집 등)를 네이버 지도 링크와 함께 담는다.
+// 일차는 별도 테이블 없이 startDate~endDate에서 파생한다(TripPlace.day = 1-based).
+// 인가 모델은 Anniversary와 동일(공유) — authorId는 "누가 만들었는지" 표시용일 뿐
+// 수정/삭제 권한을 제한하지 않는다.
+model Trip {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(100) // 여행 제목
+  startDate DateTime // 첫날(UTC 자정) = 1일차
+  endDate   DateTime // 마지막날(UTC 자정). 당일치기면 startDate와 동일
+  authorId  Int? // 작성자(User) — 삭제 시 null
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  places TripPlace[] // 일차별 장소
+
+  @@map("trips")
+}
+
+// 여행 일차별 장소 — day는 1-based 일차 번호(1 = Trip.startDate).
+// url은 네이버 지도 등 외부 링크(선택, https만). 여행 삭제 시 함께 정리(Cascade).
+model TripPlace {
+  id        Int      @id @default(autoincrement())
+  tripId    Int
+  day       Int // 1-based 일차
+  name      String   @db.VarChar(100) // 장소 이름
+  url       String?  @db.Text // 네이버 지도 링크(https)
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, day]) // 일차별 조회·정렬
+  @@map("trip_places")
 }

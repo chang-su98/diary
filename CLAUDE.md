@@ -10,7 +10,11 @@
 - `pnpm build` — 프로덕션 빌드 (Turbopack)
 - `pnpm lint` — ESLint (flat config, eslint v9)
 - `pnpm exec tsc --noEmit` — 타입 체크
+- `pnpm test` — 의존성 없는 순수 로직 자체 점검 (`node --test`, `src/**/*.test.ts`)
 - `pnpm exec prisma generate` — Prisma 클라이언트 재생성 (스키마 변경 후)
+  - ⚠️ 재생성 후에는 **dev 서버를 재시작**해야 한다. `src/lib/prisma.ts`가 PrismaClient를
+    `globalThis`에 캐시하므로 HMR만으로는 옛 인스턴스가 남아 새 모델이 `undefined`가 된다
+    (증상: `Cannot read properties of undefined (reading 'findMany')`).
 - `pnpm exec prisma migrate dev --name <name>` — 마이그레이션 생성·적용
 - `pnpm exec prisma studio` — 데이터 GUI 확인
 

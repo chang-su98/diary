@@ -21,25 +21,13 @@ import {
   selectDayItems,
   ymdFromIso,
 } from "@/lib/calendar-date";
+import { DateField, PlusIcon, errorMessage } from "./form-fields";
 
 // 달력이 다루는 일정 형태 — DB 일정 + 고정(생일·처음 만난 날) 가상 일정 공용.
 // virtual=true인 항목은 읽기 전용(수정·삭제 불가).
 type Anniversary = CalendarAnniversary;
 
 const QUERY_KEY = ["anniversaries"] as const;
-
-async function errorMessage(res: Response): Promise<string> {
-  const body: unknown = await res.json().catch(() => null);
-  if (
-    body !== null &&
-    typeof body === "object" &&
-    "error" in body &&
-    typeof body.error === "string"
-  ) {
-    return body.error;
-  }
-  return "처리에 실패했습니다.";
-}
 
 // 기간 일정의 "N박 N+1일" 라벨. 단일일/역전이면 null.
 function rangeLabel(a: Anniversary): string | null {
@@ -66,54 +54,6 @@ function ddayDisplay(a: Anniversary, todayMs: number): string {
     return "진행 중";
   }
   return formatDday(a.date, a.yearly, todayMs);
-}
-
-// 커스텀 날짜 입력 — 브라우저별 date UI 편차 대응(빈값 placeholder + 아이콘)
-function DateField({
-  value,
-  onChange,
-  min,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  min?: string;
-}) {
-  return (
-    <div className="relative w-full min-w-0">
-      <input
-        type="date"
-        value={value}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        onClick={(e) => {
-          try {
-            e.currentTarget.showPicker?.();
-          } catch (err) {
-            console.debug("[일정] showPicker 예외:", err);
-          }
-        }}
-        className={`block w-full min-w-0 appearance-none border-b border-line bg-transparent py-2 pr-7 outline-none transition-colors [color-scheme:light] focus:border-primary [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left ${
-          value ? "" : "text-transparent"
-        }`}
-      />
-      {!value && (
-        <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-text-muted">
-          YYYY / MM / DD
-        </span>
-      )}
-      <svg
-        aria-hidden
-        width={18}
-        height={18}
-        viewBox="0 0 24 24"
-        fill="none"
-        className="pointer-events-none absolute right-0 top-1/2 size-[18px] -translate-y-1/2 text-text-muted"
-      >
-        <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M3 9.5H21M8 3V6M16 3V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    </div>
-  );
 }
 
 // 체크박스 한 줄(박스 + 라벨) — 연일/매년 반복 공용
@@ -449,21 +389,8 @@ export function AnniversarySection() {
           aria-label="일정 추가"
           className="absolute right-0 top-1/2 -translate-y-1/2 p-1 transition-opacity hover:opacity-60"
         >
-          {/* 갤러리 + 버튼과 동일한 plus 아이콘(mask) */}
-          <span
-            aria-hidden
-            className="block size-6 bg-text"
-            style={{
-              maskImage: "url(/asset/images/contents/plus.svg)",
-              WebkitMaskImage: "url(/asset/images/contents/plus.svg)",
-              maskRepeat: "no-repeat",
-              WebkitMaskRepeat: "no-repeat",
-              maskPosition: "center",
-              WebkitMaskPosition: "center",
-              maskSize: "contain",
-              WebkitMaskSize: "contain",
-            }}
-          />
+          {/* 갤러리 + 버튼과 동일한 plus 아이콘 */}
+          <PlusIcon />
         </button>
       </div>
 

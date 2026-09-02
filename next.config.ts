@@ -7,10 +7,15 @@ import type { NextConfig } from "next";
 //   - script/style 'unsafe-inline' → Next App Router 하이드레이션 인라인 스크립트와
 //     Tailwind/Next 인라인 스타일 때문에 필요. nonce 기반 강화는 middleware 도입 시 후속 과제.
 // 실질 이득: frame-ancestors 'none'(클릭재킹), object-src 'none', base-uri 'self' 등.
+// dev 예외(운영 빌드엔 미적용):
+//   - 'unsafe-eval' → React dev 빌드·Turbopack HMR이 eval을 쓴다.
+//   - upgrade-insecure-requests 제외 → LAN IP(http) 접근이 https로 강제 업그레이드돼 죽는다.
+const isDev = process.env.NODE_ENV !== "production";
+
 const CSP = [
   "default-src 'self'",
   "img-src 'self' data: blob:",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "connect-src 'self'",
@@ -20,7 +25,7 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 // 모든 응답에 붙는 보안 헤더(심층 방어).
